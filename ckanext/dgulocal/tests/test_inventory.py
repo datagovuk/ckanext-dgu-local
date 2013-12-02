@@ -33,3 +33,4 @@ class TestInventory:
             assert_equal(dataset['modified'], '2013-12-01')
             assert_equal(dataset['active'], True)
             assert_equal(len(dataset['resources']), 3)
+

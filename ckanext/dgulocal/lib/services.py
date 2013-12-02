@@ -31,12 +31,16 @@ def load_services():
         log.error("Failed to retrieve service list")
         return None
 
-    data = cStringIO.StringIO(req.content)
+    return _load_functions_services(req.content)
 
+
+def _load_functions_services(raw_data):
+    data = cStringIO.StringIO(raw_data)
     try:
         doc = lxml.etree.parse(data)
     except Exception, e:
         log.exception(e)
+        data.close()
         return
 
     def load_dict(xpath):
@@ -53,5 +57,6 @@ def load_services():
     functions = load_dict("//Function")
     services = load_dict("//Service")
 
+    data.close()
     return {"functions": functions, "services": services}
 
