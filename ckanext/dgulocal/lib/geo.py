@@ -15,6 +15,12 @@ import geojson
 log = logging.getLogger(__name__)
 
 def get_boundary(url):
+    """
+    Gets the geographic boundary from the specified URL which is described
+    for a given authority (who each have their own URL). This data *will*
+    change, but should be stored against the publisher when we harvest a
+    specific inventory.
+    """
     actual = url + ".json"
 
     log.debug("Fetching Geo boundary for authority")

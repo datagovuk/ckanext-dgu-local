@@ -46,7 +46,4 @@ class LocalPlugin(SingletonPlugin):
         }
 
     def get_actions(self):
-        from ckanext.dgu.logic.action.get import publisher_show
-        return {
-            'publisher_show': publisher_show,
-            }
+        return {}

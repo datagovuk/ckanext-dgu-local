@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Inventory xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Modified="2013-12-01" Language="en">
+  <Publisher>http://opendatacommunities.org/doc/unitary-authority/peterborough</Publisher>
+  <Title>Peterborough  datasets</Title>
+  <Description>Sample inventory covering a selection of Peterborough City Council datasets</Description>
+  <Coverage>
+    <Spatial>http://statistics.data.gov.uk/id/statistical-geography/E06000031</Spatial>
+  </Coverage>
+  <Datasets>
+    <Dataset Identifier="payments_over_£500" Modified="2013-12-01" Active="Yes">
+      <Description>individual payments with a value over £500 made to suppliers each month. This allows residents to see what the council spends its money on. The information excludes payments to individuals such as council tax refunds and benefit payments. The payment amounts include VAT where applicable.</Description>
+      <Rights>http://www.nationalarchives.gov.uk/doc/open-government-licence/</Rights>
+      <Resources>
+        <Resource Identifier="payments_over_£500.aspx" DataOrDocument="Document" Modified="2013-12-01" Active="Yes" Language="en">
+          <Title>Payments over £500 webpage</Title>
+          <Description>Web page describing and listing peterborough payments over £500 data</Description>
+          <Renditions>
+            <Rendition Identifier="http://www.peterborough.gov.uk/council_and_democracy/payments_over_£500.aspx" Active="Yes">
+              <Format>text/html</Format>
+              <Title>Council payments over £500</Title>
+              <Description>Web page describing and listing peterborough payments over £500 data</Description>
+            </Rendition>
+          </Renditions>
+        </Resource>
+        <Resource Identifier="CouncilAndDemocracy-PaymentsToSuppliers-January2011" DataOrDocument="Data" Modified="2013-12-01" Active="Yes" Language="en">
+          <Title>Payments over £500 January 2011</Title>
+          <Description>Payments over £500 in January 2011</Description>
+          <Coverage TemporalFrom="2013-01-01" TemporalTo="2013-01-31" />
+          <Renditions>
+            <Rendition Identifier="http://www.peterborough.gov.uk/pdf/CouncilAndDemocracy-PaymentsToSuppliers-January2011v2.pdf" Modified="2013-12-01" Active="Yes">
+              <Format>application/pdf</Format>
+              <Title>PDF file - Spend over £500 January</Title>
+              <Description>Web page describing and listing peterborough payments over £500 data</Description>
+            </Rendition>
+          </Renditions>
+        </Resource>
+        <Resource Identifier="CouncilAndDemocracy-PaymentsToSuppliers-January2011" DataOrDocument="Data" Modified="2013-12-01" Active="Yes" Language="en">
+          <Title>Payments over £500 January 2011</Title>
+          <Description>Payments over £500 in January 2011</Description>
+          <Coverage TemporalFrom="2013-01-01" TemporalTo="2013-01-31" />
+          <Renditions>
+            <Rendition Identifier="http://www.peterborough.gov.uk/files/CouncilAndDemocracy-PaymentsToSuppliers-January2011v2.csv" Modified="2013-12-01" Active="Yes">
+              <Format>text/csv</Format>
+              <Title>CSV file - Spend over £500 January</Title>
+              <Description>Web page describing and listing peterborough payments over £500 data</Description>
+            </Rendition>
+          </Renditions>
+        </Resource>
+      </Resources>
+    </Dataset>
+  </Datasets>
+</Inventory>
