@@ -117,7 +117,6 @@ class LGAHarvester(object):
             # 4. Save and update harvestobj
 
 
-
     def _save_gather_error(self, message, job):
         '''
         Helper function to create an error during the gather stage.
@@ -145,6 +144,3 @@ class LGAHarvester(object):
             pkg.extras[LGAHarvester.IDENTIFIER_KEY] = identifier
 
         return pkg
-
-
-
