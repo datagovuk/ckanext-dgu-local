@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import uuid
@@ -37,6 +38,8 @@ class LGAHarvester(object):
         '''
         import ckan.model as model
 
+        self.last_run = None
+
         try:
             req = requests.get(harvest_job.source.url)
             e = req.raise_for_status()
@@ -46,7 +49,6 @@ class LGAHarvester(object):
             self._save_error(e, harvest_job)
             return None
 
-        # Validate XML here before we waste time later on.
         try:
             doc = InventoryDocument(req.content)
             ok, err = doc.validate()
@@ -71,9 +73,13 @@ class LGAHarvester(object):
             .order_by("gather_finished desc").first()
         if previous:
             # Check if inventory job has been modified since previous
-            # processing (if the processing was succesful).
-            pass
-
+            # processing (if the processing was succesful). We only want to
+            # compare the dates
+            self.last_run = previous.gather_finished.date
+            last_modified = datetime.datetime.strptime(metadata['modified']).date
+            if last_modified <= last_run:
+                log.info("Not modified since last run on {0}".format(last_run))
+                return None
 
         # We create a new entry for each /Inventory/Dataset within this
         # document
@@ -123,17 +129,21 @@ class LGAHarvester(object):
         dataset = json.loads(harvest_object.content)
         package = self._find_dataset_by_identifier(dataset['identifier'], owner_org)
 
-        # TODO: Check Modified field on dataset. Need to check against our last
+        # Check Modified field on dataset. Need to check against our last
         # run really to see if it was changed since then.
+        if self.last_run:
+            last_modified = datetime.datetime.strptime(dataset['modified']).date
+            if last_modified <= last_run:
+                log.info("Dataset not modified since last run on {0}".format(last_run))
+                return False
 
-        #d['modified'] = node.get('Modified')
-
+        package.owner_org = owner_org
         package.title = dataset['title']
         package.notes = dataset['description']
 
         #d['rights'] = self._get_node_text(node.xpath('Rights'))
 
-        # 2. Either create or modify based on 'Active'
+        # Set the state based on what the inventory claims
         if not dataset['active']:
             pkg.state = 'deleted'
         else:
