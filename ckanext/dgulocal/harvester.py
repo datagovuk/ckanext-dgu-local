@@ -1,10 +1,11 @@
+import json
 import logging
 import uuid
 
 import requests
 
 from ckanext.dgulocal.lib.inventory import InventoryDocument
-from ckanext.harvest.model import HarvestGatherError
+from ckanext.harvest.model import HarvestGatherError, HarvestJob
 
 log = logging.getLogger(__name__)
 
@@ -33,12 +34,9 @@ class LGAHarvester(object):
 
         :param harvest_job: HarvestJob object
         :returns: A list of HarvestObject ids
-
-            # Create a new HarvestObject for this identifier
-            #harvest_job.source.url
-
-                    ids.append(obj.id)
         '''
+        import ckan.model as model
+
         try:
             req = requests.get(harvest_job.source.url)
             e = req.raise_for_status()
@@ -63,13 +61,32 @@ class LGAHarvester(object):
         # TODO: Check modified field.  If not modified since last run, no point
         # continuing.
 
-        obj = HarvestObject(guid=unicode(uuid.uuid4()),
-                           job=harvest_job,
-                           content=req.content,
-                           harvest_source_reference=metadata['identifier'])
-        obj.save()
+        # Find any previous harvests and store. If modified since then continue
+        # otherwise bail. Store the last process date so we can check the
+        # datasets
 
-        return [obj.id]
+        previous = model.Session.query(HarvestJob)\
+            .filter(HarvestJob.source_id==harvest_job.source_id)\
+            .filter(HarvestJob.status!='New')\
+            .order_by("gather_finished desc").first()
+        if previous:
+            # Check if inventory job has been modified since previous
+            # processing (if the processing was succesful).
+            pass
+
+
+        # We create a new entry for each /Inventory/Dataset within this
+        # document
+        ids = []
+        for dataset in doc.datasets():
+            obj = HarvestObject(guid=unicode(uuid.uuid4()),
+                                job=harvest_job,
+                                content=json.dumps(dataset),
+                                harvest_source_reference=metadata['identifier'])
+            obj.save()
+            ids.append(obj.id)
+
+        return ids
 
     def fetch_stage(self, harvest_object):
         '''
@@ -77,10 +94,6 @@ class LGAHarvester(object):
         success
         :returns: True if everything went right, False if errors were found
         '''
-
-        # TODO, should we split out each Dataset element and add it as a new task?
-        # Seems unnecessary
-
         return bool(obj.content)
 
     def import_stage(self, harvest_object):
@@ -101,33 +114,37 @@ class LGAHarvester(object):
         :param harvest_object: HarvestObject object
         :returns: True if everything went right, False if errors were found
         '''
-        try:
-            doc = InventoryDocument(harvest_object.content)
-            # Don't validate a second time. We did this in gather.
-        except Exception, e:
-            self._save_error("Failed to load document: %s" % e, harvest_job)
-            log.exception(e)
-            return False
-
         owner_org = harvest_object.harvest_source.publisher_id
         if not owner_orgL
             self._save_error("Unable to import without publisher", harvest_job)
             log.error(e)
             return False
 
-        for dataset in doc.datasets():
-            package = self._find_dataset_by_identifier(dataset['identifier'], owner_org)
+        dataset = json.loads(harvest_object.content)
+        package = self._find_dataset_by_identifier(dataset['identifier'], owner_org)
 
-            # TODO: Check Modified field on dataset
-            package.title = dataset['title']
-            package.notes = dataset['description']
+        # TODO: Check Modified field on dataset. Need to check against our last
+        # run really to see if it was changed since then.
 
-            if not dataset['active']:
-                pkg.state = 'deleted'
+        #d['modified'] = node.get('Modified')
 
-            # 2. Either create or modify based on 'Active'
-            # 3. Create/Modify resources based on 'Active'
-            # 4. Save and update harvestobj
+        package.title = dataset['title']
+        package.notes = dataset['description']
+
+        #d['rights'] = self._get_node_text(node.xpath('Rights'))
+
+        # 2. Either create or modify based on 'Active'
+        if not dataset['active']:
+            pkg.state = 'deleted'
+        else:
+            pkg.state = 'active'
+
+        # 3. Create/Modify resources based on 'Active'
+        #d['resources'] = []
+
+        # 4. Save and update harvestobj
+        #model.Session.add(pkg)
+        #model.Session.commit()
 
         return True
 
