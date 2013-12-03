@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 class LGAHarvester(object):
     '''
     Harvesting of LGA Inventories from a single XML document provided at a
-    single URL.
+    URL.
     '''
 
     IDENTIFIER_KEY = 'lga_identifier'
@@ -60,13 +60,9 @@ class LGAHarvester(object):
 
         metadata = doc.prepare_metadata()
 
-        # TODO: Check modified field.  If not modified since last run, no point
-        # continuing.
-
         # Find any previous harvests and store. If modified since then continue
         # otherwise bail. Store the last process date so we can check the
         # datasets
-
         previous = model.Session.query(HarvestJob)\
             .filter(HarvestJob.source_id==harvest_job.source_id)\
             .filter(HarvestJob.status!='New')\
@@ -75,8 +71,8 @@ class LGAHarvester(object):
             # Check if inventory job has been modified since previous
             # processing (if the processing was succesful). We only want to
             # compare the dates
-            self.last_run = previous.gather_finished.date
-            last_modified = datetime.datetime.strptime(metadata['modified']).date
+            self.last_run = previous.gather_finished.date()
+            last_modified = datetime.datetime.strptime(metadata['modified']).date()
             if last_modified <= last_run:
                 log.info("Not modified since last run on {0}".format(last_run))
                 return None
@@ -120,6 +116,8 @@ class LGAHarvester(object):
         :param harvest_object: HarvestObject object
         :returns: True if everything went right, False if errors were found
         '''
+        import ckan.model as model
+
         owner_org = harvest_object.harvest_source.publisher_id
         if not owner_orgL
             self._save_error("Unable to import without publisher", harvest_job)
@@ -132,7 +130,7 @@ class LGAHarvester(object):
         # Check Modified field on dataset. Need to check against our last
         # run really to see if it was changed since then.
         if self.last_run:
-            last_modified = datetime.datetime.strptime(dataset['modified']).date
+            last_modified = datetime.datetime.strptime(dataset['modified']).date()
             if last_modified <= last_run:
                 log.info("Dataset not modified since last run on {0}".format(last_run))
                 return False
@@ -152,9 +150,12 @@ class LGAHarvester(object):
         # 3. Create/Modify resources based on 'Active'
         #d['resources'] = []
 
-        # 4. Save and update harvestobj
-        #model.Session.add(pkg)
-        #model.Session.commit()
+        # 4. Save and update harvestobj, we need a pkg id though
+        # harvest_object.package_id = pkg.id
+
+        model.Session.add(harvest_object)
+        model.Session.add(pkg)
+        model.Session.commit()
 
         return True
 
