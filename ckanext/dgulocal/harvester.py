@@ -45,7 +45,7 @@ class LGAHarvester(object):
             if e:
                 raise e
         except Exception, e:
-            self._save_gather_error(e, harvest_job)
+            self._save_error(e, harvest_job)
             return None
 
         # Validate XML here before we waste time later on.
@@ -55,7 +55,7 @@ class LGAHarvester(object):
             if not ok:
                 raise Exception(err)
         except Exception, e:
-            self._save_gather_error("Failed to load document: %s" % e, harvest_job)
+            self._save_error("Failed to load document: %s" % e, harvest_job)
             return None
 
         metadata = doc.prepare_metadata()
@@ -77,6 +77,10 @@ class LGAHarvester(object):
         success
         :returns: True if everything went right, False if errors were found
         '''
+
+        # TODO, should we split out each Dataset element and add it as a new task?
+        # Seems unnecessary
+
         return bool(obj.content)
 
     def import_stage(self, harvest_object):
@@ -85,10 +89,14 @@ class LGAHarvester(object):
         XML document and will:
 
           - Create/Modify a CKAN package
-          - Creating the HarvestObject - Package relation (if necessary)
           - Creating and storing any suitable HarvestObjectErrors that may
             occur.
           - returning True if everything went as expected, False otherwise.
+
+          The following isn't done as we are processing the inventory as a
+          single document.
+          --Creating the HarvestObject - Package relation (if necessary)--
+
 
         :param harvest_object: HarvestObject object
         :returns: True if everything went right, False if errors were found
@@ -97,11 +105,16 @@ class LGAHarvester(object):
             doc = InventoryDocument(harvest_object.content)
             # Don't validate a second time. We did this in gather.
         except Exception, e:
-            self._save_import_error("Failed to load document: %s" % e, harvest_job)
+            self._save_error("Failed to load document: %s" % e, harvest_job)
             log.exception(e)
             return False
 
         owner_org = harvest_object.harvest_source.publisher_id
+        if not owner_orgL
+            self._save_error("Unable to import without publisher", harvest_job)
+            log.error(e)
+            return False
+
         for dataset in doc.datasets():
             package = self._find_dataset_by_identifier(dataset['identifier'], owner_org)
 
@@ -116,14 +129,15 @@ class LGAHarvester(object):
             # 3. Create/Modify resources based on 'Active'
             # 4. Save and update harvestobj
 
+        return True
 
-    def _save_gather_error(self, message, job):
+
+    def _save_error(self, message, job):
         '''
         Helper function to create an error during the gather stage.
         '''
-        err = HarvestGatherError(message=message,job=job)
-        err.save()
         log.error(message)
+        HarvestGatherError(message=message,job=job).save()
 
 
     def _find_dataset_by_identifier(self, identifier, owner_org):

@@ -33,7 +33,7 @@ This extension relies on PackageExtras being added to packages that are created,
 
 ### Package Extras
 
-|__Key__|__Value__|
+|Key|Value|
 |--|--|
 |lga_identifier|The publisher-wide unique identifier for this dataset|
 |lga_services|A JSON list of service URL/Label pairs|
@@ -41,7 +41,7 @@ This extension relies on PackageExtras being added to packages that are created,
 
 ### Group (publisher) Extras
 
-|__Key__|__Value__|
+|Key|Value|
 |--|--|
 |geo_boundary|The GEOJson describing the polygon within which this authority lives - not used in this release|
 
