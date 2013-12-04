@@ -6,6 +6,7 @@ import lxml.etree
 
 log = logging.getLogger(__name__)
 
+NSMAP = {'inv': 'http://schemas.esd.org.uk/inventory'}
 
 class InventoryDocument(object):
     """
@@ -40,9 +41,9 @@ class InventoryDocument(object):
 
         root = self.doc.getroot()
         md['modified'] = root.get('Modified')
-        md['title'] = self._get_node_text(root.xpath('Title'))
-        md['publisher'] = self._get_node_text(root.xpath('Publisher'))
-        md['description'] = self._get_node_text(root.xpath('Description'))
+        md['title'] = self._get_node_text(root.xpath('inv:Metadata/inv:Title', namespaces=NSMAP))
+        md['publisher'] = self._get_node_text(root.xpath('inv:Metadata/inv:Publisher', namespaces=NSMAP))
+        md['description'] = self._get_node_text(root.xpath('inv:Metadata/inv:Description', namespaces=NSMAP))
 
         return md
 
@@ -52,7 +53,7 @@ class InventoryDocument(object):
         Yields all of the datasets within the document as dictionaries (each
         of which contain the attached resources)
         """
-        for node in self.doc.xpath('/Inventory/Datasets/Dataset'):
+        for node in self.doc.xpath('/inv:Inventory/inv:Datasets/inv:Dataset', namespaces=NSMAP):
             yield self._dataset_to_dict(node)
 
     def _get_node_text(self, node, default=''):
@@ -69,13 +70,13 @@ class InventoryDocument(object):
         Converts a Dataset node to a dictionary, complete with the resources
         """
         d = {}
-        d['identifier'] = node.get('Identifier') # TODO: This will become child
+        d['identifier'] = self._get_node_text(node.xpath('inv:Identifier',namespaces=NSMAP))
         d['modified'] = node.get('Modified')
         d['active'] = node.get('Active') == 'Yes'
-        d['description'] = self._get_node_text(node.xpath('Description'))
-        d['rights'] = self._get_node_text(node.xpath('Rights'))
+        d['description'] = self._get_node_text(node.xpath('inv:Description',namespaces=NSMAP))
+        d['rights'] = self._get_node_text(node.xpath('inv:Rights',namespaces=NSMAP))
         d['resources'] = []
-        for resnode in node.xpath('Resources/Resource'):
+        for resnode in node.xpath('inv:Resources/inv:Resource', namespaces=NSMAP):
             d['resources'].extend(self._resource_to_dict(resnode))
         return d
 
@@ -87,12 +88,12 @@ class InventoryDocument(object):
         d = {}
         # TODO: Add resource_type to each rendition based on the containing
         # resource
-        for n in node.xpath('Renditions/Rendition'):
+        for n in node.xpath('inv:Renditions/inv:Rendition', namespaces=NSMAP):
             d['url'] = n.get('Identifier')
             d['active'] = n.get('Active') == 'Yes'
-            d['title'] = self._get_node_text(n.xpath('Title'))
-            d['description'] = self._get_node_text(n.xpath('Description'))
-            d['mimetype'] = self._get_node_text(n.xpath('Format')) # Will become mimetype.
+            d['title'] = self._get_node_text(n.xpath('inv:Title', namespaces=NSMAP))
+            d['description'] = self._get_node_text(n.xpath('inv:Description', namespaces=NSMAP))
+            d['mimetype'] = self._get_node_text(n.xpath('inv:Format', namespaces=NSMAP)) # Will become mimetype.
             yield d
 
 

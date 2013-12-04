@@ -14,7 +14,6 @@ class TestInventory:
         with InventoryDocument(open(f, 'r').read()) as doc:
             valid, err = doc.validate()
             metadata = doc.prepare_metadata()
-
             assert_equal(len(metadata), 4)
             assert_equal(metadata['publisher'],
                 'http://opendatacommunities.org/doc/unitary-authority/peterborough')
