@@ -119,7 +119,7 @@ class LGAHarvester(object):
         import ckan.model as model
 
         owner_org = harvest_object.harvest_source.publisher_id
-        if not owner_orgL
+        if not owner_org:
             self._save_error("Unable to import without publisher", harvest_job)
             log.error(e)
             return False

@@ -1,6 +1,7 @@
 import logging
 import json
 import cStringIO
+import os
 
 import lxml.etree
 
@@ -21,8 +22,20 @@ class InventoryDocument(object):
         Creates the XML document from the provided content. This may
         break and so handling of errors is expected by the caller.
         """
+        # Load the XSD and make sure we use it to validate the incoming
+        # XML
+        schema_content = self._load_schema()
+        schema = lxml.etree.XMLSchema(schema_content)
+
+        parser = lxml.etree.XMLParser(schema=schema)
         self.data =  cStringIO.StringIO(content)
-        self.doc = lxml.etree.parse(self.data)
+        self.doc = lxml.etree.parse(self.data, parser=parser)
+
+    def _load_schema(self):
+        d = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data"))
+        f = os.path.join(d, "inventory.xsd")
+        return lxml.etree.parse(f)
+
 
     def validate(self):
         """
@@ -30,6 +43,7 @@ class InventoryDocument(object):
         to the XSD it claims to follow. If it fails to validate, False and
         an error string will be returned.
         """
+        # Load the XSD
         return True, ""
 
     def prepare_metadata(self):
