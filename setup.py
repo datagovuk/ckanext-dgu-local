@@ -29,5 +29,6 @@ setup(
     [ckan.plugins]
 	# Add plugins here, eg
 	dgu_local=ckanext.dgulocal.plugin:LocalPlugin
+    lga_harvester=ckanext.dgulocal.harvester:LGAHarvester
 	""",
 )
