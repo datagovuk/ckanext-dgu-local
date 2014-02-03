@@ -5,17 +5,20 @@ import uuid
 
 import requests
 
+from ckan.plugins.core import SingletonPlugin, implements
 from ckanext.dgulocal.lib.inventory import InventoryDocument
 from ckanext.harvest.model import HarvestGatherError, HarvestJob
+from ckanext.harvest.interfaces import IHarvester
 
 log = logging.getLogger(__name__)
 
-class LGAHarvester(object):
+class LGAHarvester(SingletonPlugin):
     '''
     Harvesting of LGA Inventories from a single XML document provided at a
     URL.
     '''
 
+    implements(IHarvester)
     IDENTIFIER_KEY = 'lga_identifier'
 
     def info(self):
@@ -55,7 +58,8 @@ class LGAHarvester(object):
             if not ok:
                 raise Exception(err)
         except Exception, e:
-            self._save_error("Failed to load document: %s" % e, harvest_job)
+            self._save_error("Failed to load document: %s %s" %
+                             (e.__class__.__name__, e), harvest_job)
             return None
 
         metadata = doc.prepare_metadata()

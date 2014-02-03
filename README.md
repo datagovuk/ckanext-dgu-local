@@ -13,7 +13,8 @@ For development you should install ckanext-dgu-local as follows.
 2. git clone https://github.com/datagovuk/ckanext-dgu-local.git
 3. cd ckanext-dgu-local
 4. python setup.py develop
-5. [TODO: how to install harvester]
+5. Add lga_harvester to the CKAN config ckan.plugins:
+    ckan.plugins = ...other_plugins... lga_harvester
 ```
 
 ## Running tests
