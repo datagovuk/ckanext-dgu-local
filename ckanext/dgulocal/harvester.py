@@ -7,8 +7,10 @@ import requests
 
 from ckan.plugins.core import SingletonPlugin, implements
 from ckanext.dgulocal.lib.inventory import InventoryDocument
-from ckanext.harvest.model import HarvestGatherError, HarvestJob
+from ckanext.harvest.model import HarvestGatherError, HarvestJob, HarvestObject
 from ckanext.harvest.interfaces import IHarvester
+
+from ckan.lib.munge import munge_title_to_name,substitute_ascii_equivalents
 
 log = logging.getLogger(__name__)
 
@@ -20,6 +22,35 @@ class LGAHarvester(SingletonPlugin):
 
     implements(IHarvester)
     IDENTIFIER_KEY = 'lga_identifier'
+
+    def _gen_new_name(self,title):
+        '''
+        Creates a URL friendly name from a title
+        '''
+        name = munge_title_to_name(title).replace('_', '-')
+        while '--' in name:
+            name = name.replace('--', '-')
+        return name
+
+    def _check_name(self,name):
+        '''
+        Checks if a package name already exists in the database, and adds
+        a counter at the end if it does exist.
+        '''
+        import ckan.model as model
+
+        like_q = u'%s%%' % name
+        pkg_query = model.Session.query(model.Package).filter(model.Package.name.ilike(like_q)).limit(100)
+        taken = [pkg.name for pkg in pkg_query]
+        if name not in taken:
+            return name
+        else:
+            counter = 1
+            while counter < 101:
+                if name+str(counter) not in taken:
+                    return name+str(counter)
+                counter = counter + 1
+            return None
 
     def info(self):
         '''
@@ -67,6 +98,7 @@ class LGAHarvester(SingletonPlugin):
         # Find any previous harvests and store. If modified since then continue
         # otherwise bail. Store the last process date so we can check the
         # datasets
+        """
         previous = model.Session.query(HarvestJob)\
             .filter(HarvestJob.source_id==harvest_job.source_id)\
             .filter(HarvestJob.status!='New')\
@@ -76,10 +108,11 @@ class LGAHarvester(SingletonPlugin):
             # processing (if the processing was succesful). We only want to
             # compare the dates
             self.last_run = previous.gather_finished.date()
-            last_modified = datetime.datetime.strptime(metadata['modified']).date()
+            last_modified = datetime.datetime.strptime(metadata['modified'], '%Y-%m-%d').date()
             if last_modified <= last_run:
                 log.info("Not modified since last run on {0}".format(last_run))
                 return None
+        """
 
         # We create a new entry for each /Inventory/Dataset within this
         # document
@@ -88,7 +121,7 @@ class LGAHarvester(SingletonPlugin):
             obj = HarvestObject(guid=unicode(uuid.uuid4()),
                                 job=harvest_job,
                                 content=json.dumps(dataset),
-                                harvest_source_reference=metadata['identifier'])
+                                harvest_source_reference=dataset['identifier'])
             obj.save()
             ids.append(obj.id)
 
@@ -100,7 +133,7 @@ class LGAHarvester(SingletonPlugin):
         success
         :returns: True if everything went right, False if errors were found
         '''
-        return bool(obj.content)
+        return bool(harvest_object.content)
 
     def import_stage(self, harvest_object):
         '''
@@ -122,43 +155,50 @@ class LGAHarvester(SingletonPlugin):
         '''
         import ckan.model as model
 
-        owner_org = harvest_object.harvest_source.publisher_id
+        owner_org = harvest_object.source.publisher_id
         if not owner_org:
             self._save_error("Unable to import without publisher", harvest_job)
             log.error(e)
             return False
 
         dataset = json.loads(harvest_object.content)
-        package = self._find_dataset_by_identifier(dataset['identifier'], owner_org)
+        package,found = self._find_dataset_by_identifier(dataset['identifier'], owner_org)
 
         # Check Modified field on dataset. Need to check against our last
         # run really to see if it was changed since then.
-        if self.last_run:
-            last_modified = datetime.datetime.strptime(dataset['modified']).date()
-            if last_modified <= last_run:
-                log.info("Dataset not modified since last run on {0}".format(last_run))
-                return False
+        #if self.last_run:
+        #    # 2011-02-08
+        #    last_modified = datetime.datetime.strptime(dataset['modified'], '%Y-%m-%d').date()
+        #    if last_modified <= last_run:
+        #        log.info("Dataset not modified since last run on {0}".format(last_run))
+        #        return False
 
         package.owner_org = owner_org
         package.title = dataset['title']
         package.notes = dataset['description']
 
+        if not found:
+            # If it was found, we already have a name
+            package.name = self._check_name(self._gen_new_name(package.title))
+
         #d['rights'] = self._get_node_text(node.xpath('Rights'))
 
         # Set the state based on what the inventory claims
+        log.debug(dataset)
         if not dataset['active']:
-            pkg.state = 'deleted'
+            package.state = 'deleted'
         else:
-            pkg.state = 'active'
+            package.state = 'active'
 
         # 3. Create/Modify resources based on 'Active'
         #d['resources'] = []
 
         # 4. Save and update harvestobj, we need a pkg id though
         # harvest_object.package_id = pkg.id
-
+        log.info("Creating package: %s" % package.name)
+        model.repo.new_revision()
         model.Session.add(harvest_object)
-        model.Session.add(pkg)
+        model.Session.add(package)
         model.Session.commit()
 
         return True
@@ -178,7 +218,7 @@ class LGAHarvester(SingletonPlugin):
         package and pre-sets the identifier.
         """
         import ckan.model as model
-
+        found = True
         pkg = model.Session.query(model.Package)\
             .join(model.PackageExtra)\
             .filter(model.PackageExtra.key==LGAHarvester.IDENTIFIER_KEY)\
@@ -188,5 +228,6 @@ class LGAHarvester(SingletonPlugin):
         if not pkg:
             pkg = model.Package(owner_org=owner_org)
             pkg.extras[LGAHarvester.IDENTIFIER_KEY] = identifier
+            found = False
 
-        return pkg
+        return pkg, found

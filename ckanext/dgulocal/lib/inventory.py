@@ -85,8 +85,9 @@ class InventoryDocument(object):
         """
         d = {}
         d['identifier'] = self._get_node_text(node.xpath('inv:Identifier',namespaces=NSMAP))
+        d['title'] = self._get_node_text(node.xpath('inv:Title',namespaces=NSMAP))
         d['modified'] = node.get('Modified')
-        d['active'] = node.get('Active') == 'Yes'
+        d['active'] = node.get('Active') in ['True', 'Yes']
         d['description'] = self._get_node_text(node.xpath('inv:Description',namespaces=NSMAP))
         d['rights'] = self._get_node_text(node.xpath('inv:Rights',namespaces=NSMAP))
         d['resources'] = []
