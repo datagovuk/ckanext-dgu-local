@@ -181,8 +181,6 @@ class LGAHarvester(SingletonPlugin):
             # If it was found, we already have a name
             package.name = self._check_name(self._gen_new_name(package.title))
 
-        #d['rights'] = self._get_node_text(node.xpath('Rights'))
-
         # Set the state based on what the inventory claims
         log.debug(dataset)
         if not dataset['active']:
@@ -190,9 +188,24 @@ class LGAHarvester(SingletonPlugin):
         else:
             package.state = 'active'
 
+        # License
+        register = model.Package.get_license_register()
+        for l in register.values():
+            if l.url == dataset.get('rights'):
+                package.license_id = l.id
+                break
+
         # 3. Create/Modify resources based on 'Active'
         #d['resources'] = []
 
+        # Add services and functions if any. For now, just the first
+        # TODO: Check spec to see if multiples are allowed
+        if dataset['services']:
+            package.extras['service'] = dataset['services'][0]
+        if dataset['functions']:
+            package.extras['function'] = dataset['functions'][0]
+
+        package.license
         # 4. Save and update harvestobj, we need a pkg id though
         # harvest_object.package_id = pkg.id
         log.info("Creating package: %s" % package.name)

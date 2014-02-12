@@ -16,7 +16,6 @@ class InventoryDocument(object):
     forms.
     """
 
-
     def __init__(self, content):
         """
         Creates the XML document from the provided content. This may
@@ -90,6 +89,18 @@ class InventoryDocument(object):
         d['active'] = node.get('Active') in ['True', 'Yes']
         d['description'] = self._get_node_text(node.xpath('inv:Description',namespaces=NSMAP))
         d['rights'] = self._get_node_text(node.xpath('inv:Rights',namespaces=NSMAP))
+
+        services = []
+        functions = []
+        svc = self._get_node_text(node.xpath('inv:Subjects/inv:Subject/inv:Service', namespaces=NSMAP))
+        fn =  self._get_node_text(node.xpath('inv:Subjects/inv:Subject/inv:Function', namespaces=NSMAP))
+        if svc:
+            services.append(svc)
+        if fn:
+            functions.append(fn)
+
+        d['services'] = services
+        d['functions'] = functions
         d['resources'] = []
         for resnode in node.xpath('inv:Resources/inv:Resource', namespaces=NSMAP):
             d['resources'].extend(self._resource_to_dict(resnode))
