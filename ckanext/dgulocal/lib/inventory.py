@@ -112,14 +112,12 @@ class InventoryDocument(object):
         renditions into CKAN resources.
         """
         d = {}
-        # TODO: Add resource_type to each rendition based on the containing
-        # resource
         for n in node.xpath('inv:Renditions/inv:Rendition', namespaces=NSMAP):
-            d['url'] = n.get('Identifier')
+            d['url'] = self._get_node_text(n.xpath('inv:Identifier', namespaces=NSMAP))
             d['active'] = n.get('Active') == 'Yes'
-            d['title'] = self._get_node_text(n.xpath('inv:Title', namespaces=NSMAP))
+            d['name'] = self._get_node_text(n.xpath('inv:Title', namespaces=NSMAP))
             d['description'] = self._get_node_text(n.xpath('inv:Description', namespaces=NSMAP))
-            d['mimetype'] = self._get_node_text(n.xpath('inv:Format', namespaces=NSMAP)) # Will become mimetype.
+            d['mimetype'] = self._get_node_text(n.xpath('inv:MimeType', namespaces=NSMAP)) # Will become mimetype.
             yield d
 
 

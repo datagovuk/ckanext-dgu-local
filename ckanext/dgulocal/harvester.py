@@ -196,7 +196,13 @@ class LGAHarvester(SingletonPlugin):
                 break
 
         # 3. Create/Modify resources based on 'Active'
-        #d['resources'] = []
+        resources = [r for r in dataset['resources']]
+        for resource in package.resources:
+            resource.state = 'deleted'
+
+        for resource in resources:
+            package.add_resource(resource['url'], format=resource['mimetype'],
+                description=resource['name'])
 
         # Add services and functions if any. For now, just the first
         # TODO: Check spec to see if multiples are allowed
@@ -205,7 +211,8 @@ class LGAHarvester(SingletonPlugin):
         if dataset['functions']:
             package.extras['function'] = dataset['functions'][0]
 
-        package.license
+        package.extras['local'] = True
+
         # 4. Save and update harvestobj, we need a pkg id though
         # harvest_object.package_id = pkg.id
         log.info("Creating package: %s" % package.name)
