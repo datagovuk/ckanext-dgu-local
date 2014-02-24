@@ -48,7 +48,10 @@ class LocalPlugin(SingletonPlugin):
     PackageController._guess_package_type = _guess_package_type
 
     def dataset_facets(self, facets_dict, package_type):
-        return {'Services': 'service', 'Functions': 'function'}
+        facets_dict['service'] = 'Services'
+        facets_dict['function'] = 'Functions'
+        facets_dict['local'] = 'Local Authority'
+        return facets_dict
 
     def after_map(self, map):
         return map

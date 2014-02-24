@@ -2,6 +2,7 @@ import logging
 import json
 import cStringIO
 import os
+import HTMLParser
 
 import lxml.etree
 
@@ -95,6 +96,10 @@ class InventoryDocument(object):
         d['active'] = node.get('Active') in ['True', 'Yes']
         d['description'] = self._get_node_text(node.xpath('inv:Description',namespaces=NSMAP))
         d['rights'] = self._get_node_text(node.xpath('inv:Rights',namespaces=NSMAP))
+
+        # Clean description to decode any encoded HTML
+        h = HTMLParser.HTMLParser()
+        d['description'] = h.unescape(d.get('description', ''))
 
         services = []
         functions = []
