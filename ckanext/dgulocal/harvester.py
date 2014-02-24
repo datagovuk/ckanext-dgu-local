@@ -19,8 +19,8 @@ class LGAHarvester(SingletonPlugin):
     Harvesting of LGA Inventories from a single XML document provided at a
     URL.
     '''
-
     implements(IHarvester)
+
     IDENTIFIER_KEY = 'lga_identifier'
 
     def _gen_new_name(self,title):
@@ -94,6 +94,9 @@ class LGAHarvester(SingletonPlugin):
             return None
 
         metadata = doc.prepare_metadata()
+
+        # TODO: Somehow update the publisher details with the geo boundary
+        # in md['spatial-coverage']
 
         # Find any previous harvests and store. If modified since then continue
         # otherwise bail. Store the last process date so we can check the
@@ -196,13 +199,17 @@ class LGAHarvester(SingletonPlugin):
                 break
 
         # 3. Create/Modify resources based on 'Active'
-        resources = [r for r in dataset['resources']]
+        resources = [r for r in dataset['resources'] if r['active']]
+        resource_urls = [r['url'] for r in dataset['resources'] if r['active']]
         for resource in package.resources:
             resource.state = 'deleted'
 
         for resource in resources:
+            # if it is temporal, it should be a timeseries,
+            # if it is not data, it should be an additional resource
+            # otherwise it is data
             package.add_resource(resource['url'], format=resource['mimetype'],
-                description=resource['name'])
+                description=resource['name'], resource_type=resource['resource_type'])
 
         # Add services and functions if any. For now, just the first
         # TODO: Check spec to see if multiples are allowed

@@ -50,6 +50,7 @@ class InventoryDocument(object):
         Retrieves the metadata from the document, and returns it in a
         dictionary.
         """
+        from ckanext.dgulocal.lib.geo import get_boundary
         md = {}
 
         root = self.doc.getroot()
@@ -57,6 +58,11 @@ class InventoryDocument(object):
         md['title'] = self._get_node_text(root.xpath('inv:Metadata/inv:Title', namespaces=NSMAP))
         md['publisher'] = self._get_node_text(root.xpath('inv:Metadata/inv:Publisher', namespaces=NSMAP))
         md['description'] = self._get_node_text(root.xpath('inv:Metadata/inv:Description', namespaces=NSMAP))
+
+        # Get the geo coverage for this publisher, and update if necessary
+        md['spatial-coverage'] = self._get_node_text(root.xpath('inv:Metadata/inv:Coverage/inv:Spatial', namespaces=NSMAP))
+        if md.get('spatial-coverage'):
+            md['spatial-coverage'] = get_boundary(md['spatial-coverage'])
 
         return md
 
@@ -112,9 +118,16 @@ class InventoryDocument(object):
         renditions into CKAN resources.
         """
         d = {}
+        t = node.get('Type')
+        if t == 'Document':
+            d['resource_type'] = 'documentation'
+        elif t == 'Data':
+            d['resource_type'] = ''
+
         for n in node.xpath('inv:Renditions/inv:Rendition', namespaces=NSMAP):
             d['url'] = self._get_node_text(n.xpath('inv:Identifier', namespaces=NSMAP))
-            d['active'] = n.get('Active') == 'Yes'
+            # If no active flag, default to active.
+            d['active'] = n.get('Active') in ['Yes', 'True', '', None]
             d['name'] = self._get_node_text(n.xpath('inv:Title', namespaces=NSMAP))
             d['description'] = self._get_node_text(n.xpath('inv:Description', namespaces=NSMAP))
             d['mimetype'] = self._get_node_text(n.xpath('inv:MimeType', namespaces=NSMAP)) # Will become mimetype.
