@@ -101,7 +101,6 @@ class LGAHarvester(SingletonPlugin):
         # Find any previous harvests and store. If modified since then continue
         # otherwise bail. Store the last process date so we can check the
         # datasets
-        """
         previous = model.Session.query(HarvestJob)\
             .filter(HarvestJob.source_id==harvest_job.source_id)\
             .filter(HarvestJob.status!='New')\
@@ -110,12 +109,11 @@ class LGAHarvester(SingletonPlugin):
             # Check if inventory job has been modified since previous
             # processing (if the processing was succesful). We only want to
             # compare the dates
-            self.last_run = previous.gather_finished.date()
+            last_run = previous.gather_finished.date()
             last_modified = datetime.datetime.strptime(metadata['modified'], '%Y-%m-%d').date()
             if last_modified <= last_run:
-                log.info("Not modified since last run on {0}".format(last_run))
+                log.info("Not modified {0} since last run on {1}".format(last_modified, last_run))
                 return None
-        """
 
         # We create a new entry for each /Inventory/Dataset within this
         # document
