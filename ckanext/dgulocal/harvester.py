@@ -14,6 +14,24 @@ from ckan.lib.munge import munge_title_to_name,substitute_ascii_equivalents
 
 log = logging.getLogger(__name__)
 
+db_srid = 4326
+
+def set_organization_polygon(orgid, geojson):
+    from geoalchemy import WKTSpatialElement
+    from shapely.geometry import asShape
+    from ckanext.dgulocal.model import OrganizationExtent
+    from ckanext.dgulocal.lib.geo import get_boundary
+
+    if not orgid:
+        log.debug("No organization provided")
+        return
+
+    shape = asShape(json.loads(geojson))
+    organization_extent = OrganizationExtent(organization_id=orgid,
+        the_geom=WKTSpatialElement(shape.wkt, db_srid))
+    organization_extent.save()
+
+
 class LGAHarvester(SingletonPlugin):
     '''
     Harvesting of LGA Inventories from a single XML document provided at a
@@ -96,7 +114,11 @@ class LGAHarvester(SingletonPlugin):
         metadata = doc.prepare_metadata()
 
         # TODO: Somehow update the publisher details with the geo boundary
-        # in md['spatial-coverage']
+        if metadata.get('spatial-coverage'):
+            try:
+                set_organization_polygon(harvest_job.source.publisher_id, metadata['spatial-coverage'])
+            except Exception, e:
+                log.exception(e)
 
         # Find any previous harvests and store. If modified since then continue
         # otherwise bail. Store the last process date so we can check the

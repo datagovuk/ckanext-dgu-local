@@ -57,8 +57,12 @@ class LocalPlugin(SingletonPlugin):
         return map
 
     def update_config(self, config):
+        from ckanext.dgulocal.model import setup as setup_model
+
         toolkit.add_template_directory(config, 'theme/templates')
         toolkit.add_public_directory(config, 'theme/public')
+        setup_model()
+
 
     def before_map(self, map):
         ctlr = 'ckanext.dgulocal.controllers:LocalController'
