@@ -13,7 +13,7 @@ class TestInventory:
 
         with InventoryDocument(open(f, 'r').read()) as doc:
             metadata = doc.prepare_metadata()
-            assert_equal(len(metadata), 4)
+            assert_equal(len(metadata), 5)
             assert_equal(metadata['publisher'],
                 'http://opendatacommunities.org/doc/unitary-authority/peterborough')
             assert_equal(metadata['modified'], '2013-12-01')

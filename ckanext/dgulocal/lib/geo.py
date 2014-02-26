@@ -9,7 +9,7 @@ import logging
 import json
 
 import requests
-import geojson
+from shapely.geometry import Polygon
 
 
 log = logging.getLogger(__name__)
@@ -39,5 +39,6 @@ def get_boundary(url):
             lng = l[i+1:i+2][0]
             yield (float(lat), float(lng))
 
-    poly = geojson.Polygon([c for c in chunk(boundary.strip().split(' '))])
-    return geojson.dumps(poly, sort_keys=True)
+    x = [c for c in chunk(boundary.strip().split(' '))]
+    poly = Polygon([c for c in chunk(boundary.strip().split(' '))])
+    return poly
