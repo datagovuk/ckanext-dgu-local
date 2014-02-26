@@ -17,19 +17,22 @@ log = logging.getLogger(__name__)
 db_srid = 4326
 
 def set_organization_polygon(orgid, geojson):
+    import ckan.model as model
     from geoalchemy import WKTSpatialElement
     from shapely.geometry import asShape
     from ckanext.dgulocal.model import OrganizationExtent
-    from ckanext.dgulocal.lib.geo import get_boundary
 
     if not orgid:
         log.debug("No organization provided")
         return
 
-    shape = asShape(json.loads(geojson))
-    organization_extent = OrganizationExtent(organization_id=orgid,
-        the_geom=WKTSpatialElement(shape.wkt, db_srid))
-    organization_extent.save()
+    shape = asShape(geojson)
+    extent = model.Session.query(OrganizationExtent)\
+        .filter(OrganizationExtent.organization_id == orgid).first()
+    if not extent:
+        extent = OrganizationExtent(organization_id=orgid)
+    extent.the_geom=WKTSpatialElement(shape.wkt, db_srid)
+    extent.save()
 
 
 class LGAHarvester(SingletonPlugin):

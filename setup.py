@@ -22,13 +22,17 @@ setup(
 	install_requires=[
 		"requests>=1.1.0",
 		"lxml>=2.2.4",
-        "geojson>=1.0.5"
+		"GeoAlchemy>=0.6",
+		"Shapely>=1.2.13"
 	],
 	entry_points=\
 	"""
     [ckan.plugins]
-	# Add plugins here, eg
+	# dgu_local will provide any UI/search enhancements
 	dgu_local=ckanext.dgulocal.plugin:LocalPlugin
+
+	# lga_harvester is used for harvesting from the LGA defined Inventory
+	# format.
     lga_harvester=ckanext.dgulocal.harvester:LGAHarvester
 	""",
 )
