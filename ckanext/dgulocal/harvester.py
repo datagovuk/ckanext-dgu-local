@@ -137,7 +137,7 @@ class LGAHarvester(SingletonPlugin):
             self.last_run = previous.gather_finished.date()
             last_modified = datetime.datetime.strptime(metadata['modified'], '%Y-%m-%d').date()
             if last_modified <= self.last_run:
-                log.info("Not modified {0} since last run on {1}".format(last_modified, last_run))
+                log.info("Not modified {0} since last run on {1}".format(last_modified, self.last_run))
                 return None
 
         # We create a new entry for each /Inventory/Dataset within this
