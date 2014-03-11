@@ -97,6 +97,8 @@ class InventoryDocument(object):
         d['active'] = node.get('Active') in ['True', 'Yes']
         d['description'] = self._get_node_text(node.xpath('inv:Description',namespaces=NSMAP))
         d['rights'] = self._get_node_text(node.xpath('inv:Rights',namespaces=NSMAP))
+        if d['rights'] == 'http://www.nationalarchives.gov.uk/doc/open-government-licence':
+            d['rights'] = 'http://www.nationalarchives.gov.uk/doc/open-government-licence/version/2/'
 
         # Clean description to decode any encoded HTML
         h = HTMLParser.HTMLParser()

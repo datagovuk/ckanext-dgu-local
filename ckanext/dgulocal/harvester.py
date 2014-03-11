@@ -136,9 +136,9 @@ class LGAHarvester(SingletonPlugin):
             # compare the dates
             last_run = previous.gather_finished.date()
             last_modified = datetime.datetime.strptime(metadata['modified'], '%Y-%m-%d').date()
-            if last_modified <= last_run:
-                log.info("Not modified {0} since last run on {1}".format(last_modified, last_run))
-                return None
+            #if last_modified <= last_run:
+            #    log.info("Not modified {0} since last run on {1}".format(last_modified, last_run))
+            #    return None
 
         # We create a new entry for each /Inventory/Dataset within this
         # document
@@ -192,12 +192,11 @@ class LGAHarvester(SingletonPlugin):
 
         # Check Modified field on dataset. Need to check against our last
         # run really to see if it was changed since then.
-        #if self.last_run:
-        #    # 2011-02-08
-        #    last_modified = datetime.datetime.strptime(dataset['modified'], '%Y-%m-%d').date()
-        #    if last_modified <= last_run:
-        #        log.info("Dataset not modified since last run on {0}".format(last_run))
-        #        return False
+        if self.last_run:
+            last_modified = datetime.datetime.strptime(dataset['modified'], '%Y-%m-%d').date()
+            if last_modified <= last_run:
+                log.info("Dataset not modified since last run on {0}".format(last_run))
+                return False
 
         package.owner_org = owner_org
         package.title = dataset['title']
