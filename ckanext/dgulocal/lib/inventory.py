@@ -30,6 +30,7 @@ class InventoryDocument(object):
         parser = lxml.etree.XMLParser(schema=schema)
         self.data =  cStringIO.StringIO(content)
         self.doc = lxml.etree.parse(self.data, parser=parser)
+        #self.doc = lxml.etree.parse(self.data)
 
     def _load_schema(self):
         d = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data"))

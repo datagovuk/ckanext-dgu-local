@@ -23,7 +23,7 @@
         <xs:element name="Datasets">
           <xs:complexType>
             <xs:sequence>
-              <xs:element name="Dataset">
+              <xs:element name="Dataset" maxOccurs="unbounded">
                 <xs:complexType>
                   <xs:sequence>
                     <xs:element type="xs:string" name="Identifier" minOccurs="1" maxOccurs="1"/>

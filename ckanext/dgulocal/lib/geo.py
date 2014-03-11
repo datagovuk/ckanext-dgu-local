@@ -20,12 +20,26 @@ def get_boundary(url):
     for a given authority (who each have their own URL). This data *will*
     change, but should be stored against the publisher when we harvest a
     specific inventory.
+
+    We've some inconsistency about whether this will be the publisher URI
+    or the GSS uri, so we'll support both.
     """
-    actual = url + ".json"
+    actual_url = None
+
+    if not 'statistical-geography' in url:
+        req = requests.get(url + ".json")
+        if not req.ok:
+            log.error("Failed to lookup publisher")
+            return None
+
+        blob = json.loads(req.content)
+        actual_url = blob[0]['http://opendatacommunities.org/def/local-government/governsGSS'][0]['@id'] + ".json"
+    else:
+        actual_url = url + ".json"
 
     log.debug("Fetching Geo boundary for authority")
 
-    req = requests.get(actual)
+    req = requests.get(actual_url)
     if not req.ok:
         log.error("Failed to retrieve boundary")
         return None
