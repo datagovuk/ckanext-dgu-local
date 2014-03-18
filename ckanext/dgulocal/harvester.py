@@ -1,3 +1,4 @@
+import collections
 import datetime
 import json
 import logging
@@ -6,6 +7,7 @@ import uuid
 import requests
 
 from ckan.plugins.core import SingletonPlugin, implements
+import ckanext.dgu.lib.theme as dgutheme
 from ckanext.dgulocal.lib.inventory import InventoryDocument
 from ckanext.harvest.model import HarvestGatherError, HarvestJob, HarvestObject
 from ckanext.harvest.interfaces import IHarvester
@@ -233,12 +235,23 @@ class LGAHarvester(SingletonPlugin):
             package.add_resource(resource['url'], format=resource['mimetype'],
                 description=resource['name'], resource_type=resource['resource_type'])
 
-        # Add services and functions if any. For now, just the first
-        # TODO: Check spec to see if multiples are allowed
+        # Add services and functions if any.
+        # TODO: This needs to handle multiples
+        # Set themes based on services/functions
         if dataset['services']:
-            package.extras['service'] = dataset['services'][0]
+            package.extras['services'] = dataset['services']
         if dataset['functions']:
-            package.extras['function'] = dataset['functions'][0]
+            package.extras['functions'] = dataset['functions']
+
+        # Package will be categorised by the presence of functions or services
+        # and will default to keyword matching in an attempt to properly
+        # categorise into a theme.
+        themes = dgutheme.categorize_package(package)
+        log.debug('%s given themes: %r', package.name, themes)
+        if themes:
+            package.extras[dgutheme.PRIMARY_THEME] = themes[0]
+            if len(themes) == 2:
+                package.extras[dgutheme.SECONDARY_THEMES] = '["%s"]' % themes[1]
 
         package.extras['local'] = True
 
