@@ -8,14 +8,25 @@ This extension provides support for harvesting from Local Authorities who follow
 
 For development you should install ckanext-dgu-local as follows.
 
-```
-1. Ensure virtualenv is activated, and go to src folder which holds your CKAN folder
-2. git clone https://github.com/datagovuk/ckanext-dgu-local.git
-3. cd ckanext-dgu-local
-4. python setup.py develop
-5. Add lga_harvester to the CKAN config ckan.plugins:
-    ckan.plugins = ...other_plugins... lga_harvester
-```
+1. Install this extension as normal using pip in your activated environment:
+
+    (pyenv) $ pip install -e "git+https://github.com/datagovuk/ckanext-dgu-local.git#egg=ckanext-dgu-local"
+
+2. Activate the plugins by adding them to the CKAN config and then restarting CKAN:
+
+    ckan.plugins = ...other_plugins... dgu_local lga_harvester
+
+3. Setup the database tables:
+
+    paster --plugin=ckanext-dgulocal dgulocal setup --config=ckan_default.ini
+
+
+## Plugins
+
+`dgu_local` will provide any UI/search enhancements
+
+`lga_harvester` is used for harvesting from the LGA defined Inventory format.
+
 
 ## Running tests
 

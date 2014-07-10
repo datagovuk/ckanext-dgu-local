@@ -37,7 +37,6 @@ class InventoryDocument(object):
         f = os.path.join(d, "inventory.xsd")
         return lxml.etree.parse(f)
 
-
     def validate(self):
         """
         Returns true (and empty string) if this document validates according

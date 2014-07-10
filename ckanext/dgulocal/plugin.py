@@ -21,7 +21,6 @@ from ckan.plugins import IConfigurer
 from ckan.plugins import ITemplateHelpers
 from ckan.plugins import IAuthFunctions
 from ckan.plugins import IActions
-from ckan.plugins import IActions
 import ckan.plugins.toolkit as toolkit
 from ckan.config.routing import SubMapper
 
@@ -47,37 +46,48 @@ class LocalPlugin(SingletonPlugin):
     from ckan.controllers.package import PackageController
     PackageController._guess_package_type = _guess_package_type
 
+    ## IFacets
+
     def dataset_facets(self, facets_dict, package_type):
         facets_dict['service'] = 'Services'
         facets_dict['function'] = 'Functions'
         facets_dict['local'] = 'Local Authority'
         return facets_dict
 
-    def after_map(self, map):
-        return map
+
+    # IConfigurer
 
     def update_config(self, config):
-        from ckanext.dgulocal.model import setup as setup_model
-
         toolkit.add_template_directory(config, 'theme/templates')
         toolkit.add_public_directory(config, 'theme/public')
-        setup_model()
 
+
+    ## IRoutes
+
+    def after_map(self, map):
+        return map
 
     def before_map(self, map):
         ctlr = 'ckanext.dgulocal.controllers:LocalController'
         map.connect('/local', controller=ctlr, action='search')
-
         return map
+
+
+    ## IAuthFunctions
 
     def get_auth_functions(self):
         return {
         }
 
+
+    ## IActions
+
     def get_actions(self):
         return {}
 
-    # IDatasetForm
+
+    ## IDatasetForm
+
     def package_types(self):
         return ['local']
 

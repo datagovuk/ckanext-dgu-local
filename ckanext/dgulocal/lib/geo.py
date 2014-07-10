@@ -27,6 +27,7 @@ def get_boundary(url):
     actual_url = None
 
     if not 'statistical-geography' in url:
+        log.debug("Looking up publisher", url + '.json')
         req = requests.get(url + ".json")
         if not req.ok:
             log.error("Failed to lookup publisher")
@@ -37,7 +38,7 @@ def get_boundary(url):
     else:
         actual_url = url + ".json"
 
-    log.debug("Fetching Geo boundary for authority")
+    log.debug("Fetching Geo boundary for authority: %s", actual_url)
 
     req = requests.get(actual_url)
     if not req.ok:
@@ -53,6 +54,5 @@ def get_boundary(url):
             lng = l[i+1:i+2][0]
             yield (float(lat), float(lng))
 
-    x = [c for c in chunk(boundary.strip().split(' '))]
     poly = Polygon([c for c in chunk(boundary.strip().split(' '))])
     return poly

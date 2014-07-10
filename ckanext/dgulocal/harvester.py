@@ -5,11 +5,14 @@ import logging
 import uuid
 
 import requests
+from sqlalchemy.exc import InvalidRequestError
+from sqlalchemy.sql import update, bindparam
 
 from ckan.plugins.core import SingletonPlugin, implements
 import ckanext.dgu.lib.theme as dgutheme
 from ckanext.dgulocal.lib.inventory import InventoryDocument
-from ckanext.harvest.model import HarvestGatherError, HarvestJob, HarvestObject
+from ckanext.harvest.model import HarvestGatherError, HarvestJob, HarvestObject, \
+                                  HarvestObjectError
 from ckanext.harvest.interfaces import IHarvester
 
 from ckan.lib.munge import munge_title_to_name,substitute_ascii_equivalents
@@ -97,13 +100,17 @@ class LGAHarvester(SingletonPlugin):
 
         self.last_run = None
 
+        log.debug('Resolving source: %s', harvest_job.source.url)
         try:
             req = requests.get(harvest_job.source.url)
             e = req.raise_for_status()
             if e:
                 raise e
         except Exception, e:
-            self._save_error(e, harvest_job)
+            # e.g. requests.exceptions.ConnectionError
+            self._save_gather_error('Failed to get content from URL: %s Error:%s %s' %
+                             (harvest_job.source.url, e.__class__.__name__, e),
+                             harvest_job)
             return None
 
         try:
@@ -112,7 +119,7 @@ class LGAHarvester(SingletonPlugin):
             if not ok:
                 raise Exception(err)
         except Exception, e:
-            self._save_error("Failed to load document: %s %s" %
+            self._save_gather_error("Failed to load document: %s %s" %
                              (e.__class__.__name__, e), harvest_job)
             return None
 
@@ -149,7 +156,8 @@ class LGAHarvester(SingletonPlugin):
             obj = HarvestObject(guid=unicode(uuid.uuid4()),
                                 job=harvest_job,
                                 content=json.dumps(dataset),
-                                harvest_source_reference=dataset['identifier'])
+                                harvest_source_reference=dataset['identifier'],
+                                metadata_modified_date=last_modified)
             obj.save()
             ids.append(obj.id)
 
@@ -185,7 +193,7 @@ class LGAHarvester(SingletonPlugin):
 
         owner_org = harvest_object.source.publisher_id
         if not owner_org:
-            self._save_error("Unable to import without publisher", harvest_job)
+            self._save_object_error('Unable to import without publisher (object %s)' % harvest_object.id, harvest_object, 'Import')
             log.error(e)
             return False
 
@@ -209,7 +217,7 @@ class LGAHarvester(SingletonPlugin):
             package.name = self._check_name(self._gen_new_name(package.title))
 
         # Set the state based on what the inventory claims
-        log.debug(dataset)
+        log.debug('Received data: %r', dataset)
         if not dataset['active']:
             package.state = 'deleted'
         else:
@@ -235,13 +243,29 @@ class LGAHarvester(SingletonPlugin):
             package.add_resource(resource['url'], format=resource['mimetype'],
                 description=resource['name'], resource_type=resource['resource_type'])
 
-        # Add services and functions if any.
-        # TODO: This needs to handle multiples
+        # Add LGA Services and Functions
         # Set themes based on services/functions
         if dataset['services']:
-            package.extras['services'] = dataset['services']
+            log.info("LGA Services: %r", dataset['services'])
+            # e.g. {http://id.esd.org.uk/service/190}
+            package.extras['lga_services'] = ' '.join(dataset['services'])
+        else:
+            package.extras['lga_services'] = ''
         if dataset['functions']:
-            package.extras['functions'] = dataset['functions']
+            log.info("LGA Functions %r", dataset['functions'])
+            package.extras['lga_functions'] = ' '.join(dataset['functions'])
+        else:
+            package.extras['lga_functions'] = ''
+
+        # Boilerplate for harvesters
+        extras = {
+            'import_source': 'harvest',
+            'harvest_object_id': harvest_object.id,
+            'harvest_source_reference': harvest_object.harvest_source_reference,
+            'metadata-date': harvest_object.metadata_modified_date.strftime('%Y-%m-%d'),
+        }
+        for key, value in extras.items():
+            package.extras[key] = value
 
         # Package will be categorised by the presence of functions or services
         # and will default to keyword matching in an attempt to properly
@@ -263,15 +287,50 @@ class LGAHarvester(SingletonPlugin):
         model.Session.add(package)
         model.Session.commit()
 
+        # Flag the other objects of this source as not current anymore
+        from ckanext.harvest.model import harvest_object_table
+        u = update(harvest_object_table) \
+                .where(harvest_object_table.c.package_id==bindparam('b_package_id')) \
+                .values(current=False)
+        model.Session.execute(u, params={'b_package_id':package.id})
+        model.Session.commit()
+
+        # Refresh current object from session, otherwise the
+        # import paster command fails
+        model.Session.remove()
+        model.Session.add(harvest_object)
+        model.Session.refresh(harvest_object)
+
+        # Set reference to package in the HarvestObject and flag it as
+        # the current one
+        if not harvest_object.package_id:
+            harvest_object.package_id = package.id
+
+        harvest_object.current = True
+        harvest_object.save()
+
         return True
 
 
-    def _save_error(self, message, job):
+    def _save_gather_error(self, message, job):
         '''
         Helper function to create an error during the gather stage.
         '''
         log.error(message)
         HarvestGatherError(message=message,job=job).save()
+
+
+    def _save_object_error(self, message, obj, stage=u'Fetch'):
+        import ckan.model as model
+        err = HarvestObjectError(message=message, object=obj, stage=stage)
+        try:
+            err.save()
+        except InvalidRequestError:
+            model.Session.rollback()
+            err.save()
+        finally:
+            # No need to alert administrator so don't log as an error, just info
+            log.info(message)
 
 
     def _find_dataset_by_identifier(self, identifier, owner_org):
