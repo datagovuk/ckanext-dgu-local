@@ -46,6 +46,24 @@ class OrganizationExtent(DomainObject):
         self.the_geom = the_geom
 
 
+def set_organization_polygon(orgid, geojson):
+    from geoalchemy import WKTSpatialElement
+    from shapely.geometry import asShape
+    from ckanext.dgulocal.model import OrganizationExtent
+
+    if not orgid:
+        log.error('No organization provided')
+        return
+
+    shape = asShape(geojson)
+    extent = Session.query(OrganizationExtent)\
+        .filter(OrganizationExtent.organization_id == orgid).first()
+    if not extent:
+        extent = OrganizationExtent(organization_id=orgid)
+    extent.the_geom = WKTSpatialElement(shape.wkt, db_srid)
+    extent.save()
+
+
 db_srid = int(config.get('ckan.spatial.srid', DEFAULT_SRID))
 
 organization_extent_table = Table(

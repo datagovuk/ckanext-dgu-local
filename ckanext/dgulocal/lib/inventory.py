@@ -1,77 +1,79 @@
 import logging
-import json
 import cStringIO
 import os
 import HTMLParser
 
 import lxml.etree
 
+from ckanext.dgulocal.lib.geo import get_boundary
+
 log = logging.getLogger(__name__)
 
 NSMAP = {'inv': 'http://schemas.esd.org.uk/inventory'}
 
+
+class InventoryXmlError(Exception):
+    pass
+
+
 class InventoryDocument(object):
     """
-    Controls a downloaded inventory document for a local authority and
-    allows for validation and retrieval of the content in more useful
-    forms.
+    Represents an Inventory XML document. It can be validated and parsed to
+    extract its content.
     """
 
-    def __init__(self, content):
+    def __init__(self, inventory_xml_string):
         """
-        Creates the XML document from the provided content. This may
-        break and so handling of errors is expected by the caller.
+        Initialize with an Inventory XML string.
+        It validates it against the schema and therefore may raise
+        InventoryXmlError
         """
         # Load the XSD and make sure we use it to validate the incoming
         # XML
         schema_content = self._load_schema()
         schema = lxml.etree.XMLSchema(schema_content)
-
         parser = lxml.etree.XMLParser(schema=schema)
-        self.data =  cStringIO.StringIO(content)
-        self.doc = lxml.etree.parse(self.data, parser=parser)
-        #self.doc = lxml.etree.parse(self.data)
+
+        # Load and parse the Inventory XML
+        xml_file = cStringIO.StringIO(inventory_xml_string)
+        try:
+            self.doc = lxml.etree.parse(xml_file, parser=parser)
+        except lxml.etree.XMLSyntaxError, e:
+            raise InventoryXmlError(unicode(e))
+        finally:
+            xml_file.close()
 
     def _load_schema(self):
         d = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data"))
         f = os.path.join(d, "inventory.xsd")
         return lxml.etree.parse(f)
 
-    def validate(self):
+    def top_level_metadata(self):
         """
-        Returns true (and empty string) if this document validates according
-        to the XSD it claims to follow. If it fails to validate, False and
-        an error string will be returned.
+        Extracts the top-level inv:Metadata from the XML document, and returns
+        it in a dictionary.
         """
-        # Load the XSD
-        return True, ""
-
-    def prepare_metadata(self):
-        """
-        Retrieves the metadata from the document, and returns it in a
-        dictionary.
-        """
-        from ckanext.dgulocal.lib.geo import get_boundary
         md = {}
 
         root = self.doc.getroot()
         md['modified'] = root.get('Modified')
+        md['identifier'] = self._get_node_text(root.xpath('inv:Identifier', namespaces=NSMAP))
         md['title'] = self._get_node_text(root.xpath('inv:Metadata/inv:Title', namespaces=NSMAP))
         md['publisher'] = self._get_node_text(root.xpath('inv:Metadata/inv:Publisher', namespaces=NSMAP))
         md['description'] = self._get_node_text(root.xpath('inv:Metadata/inv:Description', namespaces=NSMAP))
-
-        # Get the geo coverage for this publisher, and update if necessary
-        md['spatial-coverage'] = self._get_node_text(root.xpath('inv:Metadata/inv:Coverage/inv:Spatial', namespaces=NSMAP))
-        if md.get('spatial-coverage'):
-            md['spatial-coverage'] = get_boundary(md['spatial-coverage'])
+        md['spatial-coverage-url'] = spatial_coverage_url = self._get_node_text(root.xpath('inv:Metadata/inv:Coverage/inv:Spatial', namespaces=NSMAP))
 
         return md
 
+    def get_spatial_coverage_boundary(self):
+        if spatial_coverage_url:
+            # Get the geo coverage for this publisher, and update in our db if necessary
+            return get_boundary(spatial_coverage_url)
 
     def datasets(self):
         """
-        Yields all of the datasets within the document as dictionaries (each
-        of which contain the attached resources)
+        Yields each inv:Dataset within the XML document as a dict (complete
+        with resources)
         """
         for node in self.doc.xpath('/inv:Inventory/inv:Datasets/inv:Dataset', namespaces=NSMAP):
             yield self._dataset_to_dict(node)
@@ -121,36 +123,18 @@ class InventoryDocument(object):
 
     def _resource_to_dict(self, node):
         """
-        When passed a Resource node this method will flatten down all of the
-        renditions into CKAN resources.
+        When passed an inv:Resource node this method will flatten down all of the
+        inv:Renditions into CKAN resources.
         """
         d = {}
-        t = node.get('Type')
-        if t == 'Document':
-            d['resource_type'] = 'documentation'
-        elif t == 'Data':
-            d['resource_type'] = ''
+        d['resource_type'] = node.get('Type')  # 'Document' or 'Data'
 
         for n in node.xpath('inv:Renditions/inv:Rendition', namespaces=NSMAP):
             d['url'] = self._get_node_text(n.xpath('inv:Identifier', namespaces=NSMAP))
             # If no active flag, default to active.
             d['active'] = n.get('Active') in ['Yes', 'True', '', None]
-            d['name'] = self._get_node_text(n.xpath('inv:Title', namespaces=NSMAP))
+            d['title'] = self._get_node_text(n.xpath('inv:Title', namespaces=NSMAP))
             d['description'] = self._get_node_text(n.xpath('inv:Description', namespaces=NSMAP))
             d['mimetype'] = self._get_node_text(n.xpath('inv:MimeType', namespaces=NSMAP)) # Will become mimetype.
             yield d
-
-
-    def __enter__(self):
-        """
-        Helpers to allow for using this class as a context manager
-        """
-        return self
-
-    def __exit__(self, type, value, traceback):
-        """
-        Cleanup when the context manager closes.
-        """
-        self.data.close()
-        del self.doc
 

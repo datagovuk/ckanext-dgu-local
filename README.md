@@ -18,7 +18,7 @@ For development you should install ckanext-dgu-local as follows.
 
 3. Setup the database tables:
 
-    paster --plugin=ckanext-dgulocal dgulocal setup --config=ckan_default.ini
+    paster --plugin=ckanext-dgulocal dgulocal init --config=ckan_default.ini
 
 
 ## Plugins
