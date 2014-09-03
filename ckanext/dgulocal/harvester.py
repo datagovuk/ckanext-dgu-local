@@ -1,21 +1,18 @@
-import datetime
-import json
 import logging
 import re
 
 import requests
-from sqlalchemy.exc import InvalidRequestError
-from sqlalchemy.sql import update, bindparam
 
 from ckan.plugins.core import implements
 from ckan import model
 import ckanext.dgu.lib.theme as dgutheme
 from ckanext.dgulocal.lib.inventory import InventoryDocument, InventoryXmlError
-from ckanext.harvest.model import HarvestGatherError, HarvestJob, HarvestObject, \
-                                  HarvestObjectError, HarvestObjectExtra as HOExtra
+from ckanext.harvest.model import (HarvestJob, HarvestObject,
+                                   HarvestObjectExtra as HOExtra)
 from ckanext.harvest.interfaces import IHarvester
 from ckanext.harvest.harvesters.base import HarvesterBase
 from ckanext.dgulocal.lib.geo import get_boundary
+from ckanext.dgu.lib.formats import Formats
 
 log = logging.getLogger(__name__)
 
@@ -47,8 +44,6 @@ class LGAHarvester(HarvesterBase):
         :param harvest_job: HarvestJob object
         :returns: A list of HarvestObject ids
         '''
-        import ckan.model as model
-
         self.last_run = None
 
         log.debug('Resolving source: %s', harvest_job.source.url)
@@ -59,7 +54,7 @@ class LGAHarvester(HarvesterBase):
                 raise e
         except requests.exceptions.RequestException, e:
             # e.g. requests.exceptions.ConnectionError
-            self._save_gather_error('Failed to get content from URL: %s Error:%s %s' %
+            self.save_gather_error('Failed to get content from URL: %s Error:%s %s' %
                              (harvest_job.source.url, e.__class__.__name__, e),
                              harvest_job)
             return None
@@ -67,7 +62,7 @@ class LGAHarvester(HarvesterBase):
         try:
             doc = InventoryDocument(req.content)
         except InventoryXmlError, e:
-            self._save_gather_error("Failed to parse or validate the XML document: %s %s" %
+            self.save_gather_error('Failed to parse or validate the XML document: %s %s' %
                              (e.__class__.__name__, e), harvest_job)
             return None
 
@@ -92,34 +87,61 @@ class LGAHarvester(HarvesterBase):
         # Find any previous harvests and store. If modified since then continue
         # otherwise bail. Store the last process date so we can check the
         # datasets
-        last_modified = datetime.datetime.strptime(doc_metadata['modified'], '%Y-%m-%d').date()
+        doc_last_modified = doc_metadata['modified']
         previous = model.Session.query(HarvestJob)\
             .filter(HarvestJob.source_id==harvest_job.source_id)\
             .filter(HarvestJob.status!='New')\
             .order_by("gather_finished desc").first()
-        if previous:
-            # Check if inventory job has been modified since previous
-            # processing (if the processing was successful). We only want to
-            # compare the dates
-            self.last_run = previous.gather_finished.date()
-            if last_modified <= self.last_run:
-                log.info("Not modified {0} since last run on {1}".format(last_modified, self.last_run))
+        if previous and previous.gather_finished:
+            # Skip the harvest if we are sure the metadata is unchanged since
+            # the last run.
+            # i.e.
+            # 1. the last_modified is filled in
+            # 2. AND last_modified was the older that the last run (can't be
+            # the same as it could be changed at a later time than the last
+            # run, and the time of the modification is not in the Inventory
+            # XML)
+            self.last_run = previous.gather_finished
+            if doc_last_modified \
+                    and doc_last_modified < self.last_run.date():
+                log.info("Not modified {0} since last run on {1}".format(doc_last_modified, self.last_run.date()))
                 return None
 
         # We create a new HarvestObject for each inv:Dataset within the
         # Inventory document
         ids = []
-        for dataset in doc.datasets():
+        for dataset_node in doc.dataset_nodes():
+            dataset = doc.dataset_to_dict(dataset_node)
             guid = self.build_guid(doc_metadata['identifier'], dataset['identifier'])
+            # Use the most recent modification date out of the doc and dataset,
+            # since they might have forgotten to enter or update the dataset
+            # date.
+            dataset_last_modified = dataset['modified'] or doc_last_modified
+            if dataset_last_modified and doc_last_modified:
+                dataset_last_modified = max(dataset_last_modified, doc_last_modified)
             if previous:
-                import pdb; pdb.set_trace()
+                # object may be in the previous harvest, or an older one
+                existing_object = model.Session.query(HarvestObject)\
+                                       .filter_by(guid=guid)\
+                                       .filter_by(current=True)\
+                                       .first()
+                if not existing_object:
+                    status = 'new'
+                elif (not existing_object.metadata_modified_date) or \
+                        existing_object.metadata_modified_date.date() < dataset_last_modified:
+                    status = 'changed'
+                else:
+                    log.debug('Dataset unchanged: %s this="%s" previous="%s"',
+                              dataset['title'], dataset_last_modified,
+                              existing_object.metadata_modified_date)
+                    continue
             else:
                 status = 'new'
             obj = HarvestObject(guid=guid,
                                 job=harvest_job,
-                                content=json.dumps(dataset),
+                                content=doc.serialize_node(dataset_node),
                                 harvest_source_reference=guid,
-                                metadata_modified_date=last_modified,
+                                metadata_modified_date=dataset_last_modified,
                                 extras=[HOExtra(key='status', value=status)],
                                 )
             obj.save()
@@ -140,7 +162,7 @@ class LGAHarvester(HarvesterBase):
     @classmethod
     def build_guid(cls, doc_identifier, dataset_identifier):
         assert doc_identifier  # e.g. http://redbridge.gov.uk/
-        assert dataset_identifier # e.g. river-levels
+        assert dataset_identifier  # e.g. river-levels
         return '%s/%s' % (doc_identifier, dataset_identifier)
 
     def get_package_dict(self, harvest_object, package_dict_defaults,
@@ -158,14 +180,18 @@ class LGAHarvester(HarvesterBase):
         * default values for name, owner_org, tags etc can be merged in using:
             package_dict = package_dict_defaults.merge(package_dict_harvested)
         '''
-        inv_dataset = json.loads(harvest_object.content)
+        inv_dataset = InventoryDocument.dataset_to_dict(
+                       InventoryDocument.parse_xml_string(harvest_object.content)
+                       )
 
         pkg = dict(
             title=inv_dataset['title'],
             notes=inv_dataset['description'],
             state='active' if inv_dataset['active'] else 'deleted',
             resources=[],
-            extras={'local': True},
+            extras={self.IDENTIFIER_KEY: inv_dataset['identifier'],
+                    'harvest_source_reference': harvest_object.guid
+                    }
             )
         # License
         rights = inv_dataset.get('rights')
@@ -192,16 +218,25 @@ class LGAHarvester(HarvesterBase):
                                  if existing_dataset else {}
         pkg['resources'] = []
         for inv_resource in inv_resources:
+            format_ = Formats.by_mime_type().get(inv_resource['mimetype'])
+            if format_:
+                format_ = format_['display_name']
+            else:
+                format_ = inv_resource['mimetype']
+            description = inv_resource['title']
+            if inv_resource['availability']:
+                description += ' - %s' % inv_resource['availability']
             # if it is temporal, it should be a timeseries,
             # if it is not data, it should be an additional resource
             resource_type = 'file' if inv_resource['resource_type'] == 'Data' \
                 else 'documentation'
             res = {'url': inv_resource['url'],
-                   'format': inv_resource['mimetype'],
-                   'description': inv_resource['title'],
+                   'format': format_,
+                   'description': description,
                    'resource_type': resource_type}
             if res['url'] in existing_resource_urls:
                 res['id'] = existing_resource_urls[res['url']]
+            pkg['resources'].append(res)
 
         # LGA Services and Functions
         if inv_dataset['services']:
@@ -245,187 +280,3 @@ class LGAHarvester(HarvesterBase):
             # Just look for capital letters
             abbrev = re.sub('[^A-Z]', '', publisher.title)
         return abbrev
-
-    def _import_stage(self, harvest_object):
-        '''
-        The import stage will receive a HarvestObject object with the inventory
-        XML document and will:
-
-          - Create/Modify a CKAN package
-          - Creating and storing any suitable HarvestObjectErrors that may
-            occur.
-          - returning True if everything went as expected, False otherwise.
-
-          The following isn't done as we are processing the inventory as a
-          single document.
-          --Creating the HarvestObject - Package relation (if necessary)--
-
-
-        :param harvest_object: HarvestObject object
-        :returns: True if everything went right, False if errors were found
-        '''
-        import ckan.model as model
-
-        owner_org = harvest_object.source.publisher_id
-        if not owner_org:
-            self._save_object_error('Unable to import without publisher (object %s)' % harvest_object.id, harvest_object, 'Import')
-            log.error(e)
-            return False
-
-        dataset = json.loads(harvest_object.content)
-        package,found = self._find_dataset_by_identifier(dataset['identifier'], owner_org)
-
-        # Check Modified field on dataset. Need to check against our last
-        # run really to see if it was changed since then.
-        #if self.last_run:
-        #    last_modified = datetime.datetime.strptime(dataset['modified'], '%Y-%m-%d').date()
-        #    if last_modified <= self.last_run:
-        #        log.info("Dataset not modified since last run on {0}".format(self.last_run))
-        #        return False
-
-        package.owner_org = owner_org
-        package.title = dataset['title']
-        package.notes = dataset['description']
-
-        if not found:
-            # If it was found, we already have a name
-            package.name = self._check_name(self._gen_new_name(package.title))
-
-        # Set the state based on what the inventory claims
-        log.debug('Received data: %r', dataset)
-        if not dataset['active']:
-            package.state = 'deleted'
-        else:
-            package.state = 'active'
-
-        # License
-        register = model.Package.get_license_register()
-        for l in register.values():
-            if l.url == dataset.get('rights'):
-                package.license_id = l.id
-                break
-
-        # 3. Create/Modify resources based on 'Active'
-        resources = [r for r in dataset['resources'] if r['active']]
-        resource_urls = [r['url'] for r in dataset['resources'] if r['active']]
-        for resource in package.resources:
-            resource.state = 'deleted'
-
-        for resource in resources:
-            # if it is temporal, it should be a timeseries,
-            # if it is not data, it should be an additional resource
-            # otherwise it is data
-            package.add_resource(resource['url'], format=resource['mimetype'],
-                description=resource['name'], resource_type=resource['resource_type'])
-
-        # Add LGA Services and Functions
-        # Set themes based on services/functions
-        if dataset['services']:
-            log.info("LGA Services: %r", dataset['services'])
-            # e.g. {http://id.esd.org.uk/service/190}
-            package.extras['lga_services'] = ' '.join(dataset['services'])
-        else:
-            package.extras['lga_services'] = ''
-        if dataset['functions']:
-            log.info("LGA Functions %r", dataset['functions'])
-            package.extras['lga_functions'] = ' '.join(dataset['functions'])
-        else:
-            package.extras['lga_functions'] = ''
-
-        # Boilerplate for harvesters
-        extras = {
-            'import_source': 'harvest',
-            'harvest_object_id': harvest_object.id,
-            'harvest_source_reference': harvest_object.harvest_source_reference,
-            'metadata-date': harvest_object.metadata_modified_date.strftime('%Y-%m-%d'),
-        }
-        for key, value in extras.items():
-            package.extras[key] = value
-
-        # Package will be categorised by the presence of functions or services
-        # and will default to keyword matching in an attempt to properly
-        # categorise into a theme.
-        themes = dgutheme.categorize_package(package)
-        log.debug('%s given themes: %r', package.name, themes)
-        if themes:
-            package.extras[dgutheme.PRIMARY_THEME] = themes[0]
-            if len(themes) == 2:
-                package.extras[dgutheme.SECONDARY_THEMES] = '["%s"]' % themes[1]
-
-        package.extras['local'] = True
-
-        # 4. Save and update harvestobj, we need a pkg id though
-        # harvest_object.package_id = pkg.id
-        log.info("Creating package: %s" % package.name)
-        model.repo.new_revision()
-        model.Session.add(harvest_object)
-        model.Session.add(package)
-        model.Session.commit()
-
-        # Flag the other objects of this source as not current anymore
-        from ckanext.harvest.model import harvest_object_table
-        u = update(harvest_object_table) \
-                .where(harvest_object_table.c.package_id==bindparam('b_package_id')) \
-                .values(current=False)
-        model.Session.execute(u, params={'b_package_id':package.id})
-        model.Session.commit()
-
-        # Refresh current object from session, otherwise the
-        # import paster command fails
-        model.Session.remove()
-        model.Session.add(harvest_object)
-        model.Session.refresh(harvest_object)
-
-        # Set reference to package in the HarvestObject and flag it as
-        # the current one
-        if not harvest_object.package_id:
-            harvest_object.package_id = package.id
-
-        harvest_object.current = True
-        harvest_object.save()
-
-        self.create_or_update_package(package_dict, harvest_object)
-
-        return True
-
-
-    def _save_gather_error(self, message, job):
-        '''
-        Helper function to create an error during the gather stage.
-        '''
-        log.error(message)
-        HarvestGatherError(message=message,job=job).save()
-
-
-    def _save_object_error(self, message, obj, stage=u'Fetch'):
-        import ckan.model as model
-        err = HarvestObjectError(message=message, object=obj, stage=stage)
-        try:
-            err.save()
-        except InvalidRequestError:
-            model.Session.rollback()
-            err.save()
-        finally:
-            # No need to alert administrator so don't log as an error, just info
-            log.info(message)
-
-
-    def _find_dataset_by_identifier(self, identifier, owner_org):
-        """
-        Find a package using the lga:identifier passed in, or creates a new
-        package and pre-sets the identifier.
-        """
-        import ckan.model as model
-        found = True
-        pkg = model.Session.query(model.Package)\
-            .join(model.PackageExtra)\
-            .filter(model.PackageExtra.key==LGAHarvester.IDENTIFIER_KEY)\
-            .filter(model.PackageExtra.value==identifier)\
-            .filter(model.Package.owner_org==owner_org)\
-            .first()
-        if not pkg:
-            pkg = model.Package(owner_org=owner_org)
-            pkg.extras[LGAHarvester.IDENTIFIER_KEY] = identifier
-            found = False
-
-        return pkg, found

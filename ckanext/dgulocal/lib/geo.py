@@ -42,7 +42,7 @@ def get_boundary(url):
     else:
         gss_url = url + '.json'
 
-    log.debug('Fetching Geo boundary for authority: %s', gss_url)
+    log.debug('Getting Geo boundary for authority: %s', gss_url)
 
     try:
         req = requests.get(gss_url)
