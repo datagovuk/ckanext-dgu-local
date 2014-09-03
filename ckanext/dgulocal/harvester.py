@@ -33,7 +33,7 @@ class LGAHarvester(HarvesterBase):
         return {
                 "name": "lga",
                 "title": "LGA Inventory XML",
-                "description": "Dataset metadata published according to the Local Government Association's Inventory XML format."
+                "description": "Dataset metadata published according to the Local Government Association's Inventory XML format: https://github.com/datagovuk/ckanext-dgu-local/blob/master/ckanext/dgulocal/data/inventory.xsd"
             }
 
     def gather_stage(self, harvest_job):

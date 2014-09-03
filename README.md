@@ -1,8 +1,15 @@
 # ckanext-dgu-local
 
+This extension provides support for harvesting from Local Authority data portal that exposes datasets according to the LGA Inventory spec: https://github.com/datagovuk/ckanext-dgu-local/blob/master/ckanext/dgulocal/data/inventory.xsd . 
 
-This extension provides support for harvesting from Local Authorities who follow the spec [TBC] describing their inventory data. This currently has dependencies on UK specific data, but the extension should work if the inventory document doesn't reference the UK specific publisher and temporal URLs.
+This currently has dependencies on UK specific data, but the extension should work if the inventory document doesn't reference the UK specific publisher and temporal URLs.
 
+
+## Dependencies
+
+The LGA Inventory harvester relies on this version of ckanext-harvest:
+
+    https://github.com/datagovuk/ckanext-harvest/tree/1508-update
 
 ## Installation
 
@@ -25,7 +32,7 @@ For development you should install ckanext-dgu-local as follows.
 
 `dgu_local` will provide any UI/search enhancements
 
-`lga_harvester` is used for harvesting from the LGA defined Inventory format.
+`lga_harvester` is used for harvesting from the LGA Inventory format.
 
 
 ## Running tests
@@ -58,5 +65,10 @@ This extension relies on PackageExtras being added to packages that are created,
 |geo_boundary|The GEOJson describing the polygon within which this authority lives - not used in this release|
 
 
+## Licence
 
+(c) Crown Copyright
+Code in this repository is subject to Crown Copyright and licensed under the GNU Affero General Public License (AGPL) v3.0.
+
+AGPL terms: http://www.fsf.org/licensing/licenses/agpl-3.0.html
 
