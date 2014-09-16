@@ -27,6 +27,9 @@ For development you should install ckanext-dgu-local as follows.
 
     paster --plugin=ckanext-dgu-local dgulocal init --config=ckan_default.ini
 
+4. Download NLTK Stopwords Corpus
+
+    python -m nltk.downloader stopwords    
 
 ## Plugins
 
