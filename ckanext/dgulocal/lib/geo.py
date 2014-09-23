@@ -37,8 +37,16 @@ def get_boundary(url):
             log.error('Failed to retrieve publisher: %s %s', e, publisher_url)
             return None
 
-        blob = json.loads(req.content)
-        gss_url = blob[0]['http://opendatacommunities.org/def/local-government/governsGSS'][0]['@id'] + '.json'
+        try:
+            blob = json.loads(req.content)
+        except ValueError:
+            log.error('Not JSON response: %s', publisher_url)
+            return None
+        try:
+            gss_url = blob[0]['http://opendatacommunities.org/def/local-government/governsGSS'][0]['@id'] + '.json'
+        except KeyError:
+            log.error('Key not found : %s', publisher_url)
+            return None
     else:
         gss_url = url + '.json'
 
@@ -51,8 +59,16 @@ def get_boundary(url):
         log.error('Failed to retrieve publisher boundary: %s %s', e, gss_url)
         return None
 
-    blob = json.loads(req.content)
-    boundary = blob['result']['primaryTopic']['hasExteriorLatLongPolygon']
+    try:
+        blob = json.loads(req.content)
+    except ValueError:
+        log.error('Not json response (gss): %s', gss_url)
+        return None
+    try:
+        boundary = blob['result']['primaryTopic']['hasExteriorLatLongPolygon']
+    except KeyError:
+        log.error('Key not found (gss): %s', gss_url)
+        return None
 
     def chunk(l):
         for i in xrange(0, len(l), 2):
