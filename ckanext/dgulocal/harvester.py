@@ -16,24 +16,29 @@ from ckanext.dgu.lib.formats import Formats
 
 log = logging.getLogger(__name__)
 
+SCHEMA_TYPE_MAP = {
+    'CSV': 'csvlint',
+    'XML': 'xsd',
+    }
 
-class LGAHarvester(HarvesterBase):
+
+class InventoryHarvester(HarvesterBase):
     '''
     Harvesting of LGA Inventories from a single XML document provided at a
     URL.
     '''
     implements(IHarvester)
 
-    IDENTIFIER_KEY = 'lga_identifier'
+    IDENTIFIER_KEY = 'inventory_identifier'
 
     def info(self):
         '''
         Returns a descriptor with information about the harvester.
         '''
         return {
-                "name": "lga",
-                "title": "LGA Inventory XML",
-                "description": "Dataset metadata published according to the Local Government Association's Inventory XML format: https://github.com/datagovuk/ckanext-dgu-local/blob/master/ckanext/dgulocal/data/inventory.xsd"
+                "name": "inventory",
+                "title": "Inventory XML",
+                "description": "Dataset metadata published according to the Inventory XML format: http://schemas.opendata.esd.org.uk/Inventory with XSD: https://github.com/datagovuk/ckanext-dgu-local/blob/master/ckanext/dgulocal/data/inventory.xsd"
             }
 
     def gather_stage(self, harvest_job):
@@ -230,10 +235,19 @@ class LGAHarvester(HarvesterBase):
             # if it is not data, it should be an additional resource
             resource_type = 'file' if inv_resource['resource_type'] == 'Data' \
                 else 'documentation'
+            # Schema
+            if inv_resource['conforms_to']:
+                schema_url = inv_resource['conforms_to']
+                schema_type = SCHEMA_TYPE_MAP.get(format_)
+            else:
+                schema_url = schema_type = ''
             res = {'url': inv_resource['url'],
                    'format': format_,
                    'description': description,
-                   'resource_type': resource_type}
+                   'resource_type': resource_type,
+                   'schema-url': schema_url,
+                   'schema-type': schema_type,
+                   }
             if res['url'] in existing_resource_urls:
                 res['id'] = existing_resource_urls[res['url']]
             pkg['resources'].append(res)

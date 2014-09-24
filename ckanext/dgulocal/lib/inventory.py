@@ -151,7 +151,8 @@ class InventoryDocument(object):
             res['resource_type'] = n.get('Type')
             res['title'] = cls._get_node_text(n.xpath('inv:Title', namespaces=NSMAP))
             res['description'] = cls._get_node_text(n.xpath('inv:Description', namespaces=NSMAP))
-            res['mimetype'] = cls._get_node_text(n.xpath('inv:MimeType', namespaces=NSMAP)) # Will become mimetype.
-            res['availability'] = cls._get_node_text(n.xpath('inv:Availability', namespaces=NSMAP)) # Will become mimetype.
+            res['mimetype'] = cls._get_node_text(n.xpath('inv:MimeType', namespaces=NSMAP))
+            res['availability'] = cls._get_node_text(n.xpath('inv:Availability', namespaces=NSMAP))
+            res['conforms_to'] = cls._get_node_text(n.xpath('inv:ConformsTo', namespaces=NSMAP))
             yield res
 

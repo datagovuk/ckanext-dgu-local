@@ -1,4 +1,3 @@
-import codecs
 import os
 
 import ckanext.dgulocal.lib.services as services
@@ -17,4 +16,4 @@ class TestServiceList:
 
         assert_equal(len(data), 2)
         assert_equal(len(data.get('functions',{})), 113)
-        assert_equal(len(data.get('services',{})), 1126)
+        assert_equal(len(data.get('services',{})), 1127)

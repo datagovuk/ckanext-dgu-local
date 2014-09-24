@@ -4,7 +4,7 @@ from pprint import pprint
 from nose.tools import assert_equal
 
 from ckanext.harvest.harvesters.base import PackageDictDefaults
-from ckanext.dgulocal.harvester import LGAHarvester
+from ckanext.dgulocal.harvester import InventoryHarvester
 from ckan.new_tests import factories
 
 class MockObject(dict):
@@ -15,7 +15,7 @@ class TestGetPackageDict:
 
     @classmethod
     def setup_class(cls):
-        cls.publisher = factories.Organization(title='Cabinet Office', category='sub-organisation')
+        cls.publisher = factories.Organization(title='Cabinet Office', category='ministerial-department')
 
     def _get_test_harvest_object(self):
         content = '''
@@ -36,6 +36,7 @@ class TestGetPackageDict:
               <inv:Title>Some file</inv:Title>
               <inv:Description>Web page describing and listing peterborough payments over 500 data</inv:Description>
               <inv:Availability>Download</inv:Availability>
+              <inv:ConformsTo>http://schemas.opendata.esd.org.uk/publictoilets/PublicToilets.xml?v=0.24</inv:ConformsTo>
             </inv:Rendition>
           </inv:Renditions>
         </inv:Resource>
@@ -47,17 +48,19 @@ class TestGetPackageDict:
         harvest_object = MockObject(
                 job=harvest_job,
                 content=content,
+                guid='testguid',
                 )
         return harvest_object
 
     def test_get_package_dict(self):
-        h = LGAHarvester()
+        h = InventoryHarvester()
         harvest_object = self._get_test_harvest_object()
         package_dict_defaults = PackageDictDefaults()
         source_config = {}
         existing_pkg = MockObject(resources=[])
         pkg_dict = h.get_package_dict(harvest_object, package_dict_defaults,
                                       source_config, existing_pkg)
+        pkg_dict['extras'] = sorted(pkg_dict['extras'])
         pprint(pkg_dict)
         assert_equal(pkg_dict, {
             'name': 'test-dataset-co',
@@ -69,8 +72,12 @@ class TestGetPackageDict:
             'resources': [{'description': u'Some file - Download',
                            'format': 'CSV',
                            'resource_type': 'documentation',
-                           'url': u'http://test.com/file.xls'}],
-            'extras': [{'key': 'lga_services', 'value': ''},
-                       {'key': 'local', 'value': True},
-                       {'key': 'lga_functions', 'value': ''}],
+                           'url': u'http://test.com/file.xls',
+                           'schema-url': 'http://schemas.opendata.esd.org.uk/publictoilets/PublicToilets.xml?v=0.24',
+                           'schema-type': 'csvlint',
+                           }],
+            'extras': [{'key': 'harvest_source_reference', 'value': 'testguid'},
+                       {'key': 'inventory_identifier', 'value': 'payments_over_500'},
+                       {'key': 'lga_functions', 'value': ''},
+                       {'key': 'lga_services', 'value': ''}],
             })

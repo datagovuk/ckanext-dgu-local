@@ -37,13 +37,13 @@ For development you should install ckanext-dgu-local as follows.
 
 ## Running tests
 
-The tests for ckanext-dgu-local can be run using:
+The tests for ckanext-dgu-local can be run from the ckanext-dgu-local folder using:
 
-```
-nosetests
-```
+    nosetests --ckan --with-pylons=test-core.ini ckanext/dgulocal/tests
 
-from the cknext-dgu-local folder.
+And some tests do not use the database so can be run in sqlite:
+
+    nosetests --ckan --with-pylons=test.ini ckanext/dgulocal/tests/test_harvester.py
 
 
 ## Metadata

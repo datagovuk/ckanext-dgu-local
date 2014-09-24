@@ -1,13 +1,12 @@
 from nose.tools import assert_equal
 from mock import patch
 
-from ckan.lib.base import config
 from ckan import model
 from ckan.model import Session,Package
 from ckan.logic.schema import default_update_package_schema
 from ckan.logic import get_action
 from ckanext.harvest.model import HarvestSource, HarvestJob, HarvestObject
-from ckanext.dgulocal.harvester import LGAHarvester
+from ckanext.dgulocal.harvester import InventoryHarvester
 from ckan.new_tests import factories
 
 from test_harvester import MockObject
@@ -107,10 +106,10 @@ class HarvestFixtureBase:
 
 class TestAbbreviations:
     def test_simple(self):
-        assert_equal(LGAHarvester._get_publisher_abbreviation(MockObject(extras={}, title='Cabinet Office')), 'CO')
+        assert_equal(InventoryHarvester._get_publisher_abbreviation(MockObject(extras={}, title='Cabinet Office')), 'CO')
 
     def test_hard(self):
-        assert_equal(LGAHarvester._get_publisher_abbreviation(MockObject(extras={}, title='Department for Environment, Food & Rural Affairs')), 'DEFRA')
+        assert_equal(InventoryHarvester._get_publisher_abbreviation(MockObject(extras={}, title='Department for Environment, Food & Rural Affairs')), 'DEFRA')
 
 
 class TestHarvest(HarvestFixtureBase):
@@ -129,12 +128,12 @@ class TestHarvest(HarvestFixtureBase):
             'title': 'Test Source',
             'name': 'test-source',
             'url': u'http://127.0.0.1:8999/esdInventory_live_truncated.xml',
-            'type': u'lga',
+            'type': u'inventory',
         }
         source, job = self._create_source_and_job(source_fixture)
 
         # Gather
-        harvester = LGAHarvester()
+        harvester = InventoryHarvester()
         # mock boundary stuff to avoid needing PostGIS - it is not tested here
         # and that allows this test to run on sqlite
         with patch('ckanext.dgulocal.harvester.get_boundary') as get_boundary:
