@@ -8,7 +8,8 @@ from ckan import model
 import ckanext.dgu.lib.theme as dgutheme
 from ckanext.dgulocal.lib.inventory import InventoryDocument, InventoryXmlError
 from ckanext.harvest.model import (HarvestJob, HarvestObject,
-                                   HarvestObjectExtra as HOExtra)
+                                   HarvestObjectExtra as HOExtra,
+                                   HarvestGatherError)
 from ckanext.harvest.interfaces import IHarvester
 from ckanext.harvest.harvesters.base import HarvesterBase
 from ckanext.dgulocal.lib.geo import get_boundary
@@ -97,26 +98,25 @@ class InventoryHarvester(HarvesterBase):
             .filter(HarvestJob.source_id==harvest_job.source_id)\
             .filter(HarvestJob.status!='New')\
             .order_by("gather_finished desc").first()
-        if previous and previous.gather_finished:
-            # Skip the harvest if we are sure the metadata is unchanged since
-            # the last run.
-            # i.e.
-            # 1. the last_modified is filled in
-            # 2. AND last_modified was the older that the last run (can't be
-            # the same as it could be changed at a later time than the last
-            # run, and the time of the modification is not in the Inventory
-            # XML)
-            self.last_run = previous.gather_finished
-            if doc_last_modified \
-                    and doc_last_modified < self.last_run.date():
-                log.info("Not modified {0} since last run on {1}".format(doc_last_modified, self.last_run.date()))
-                return None
+        # We thought about using the document's modified date to see if it is
+        # unchanged from the previous harvest, but it's hard to tell if the
+        # previous harvest was not successful due to whatever reason, so don't
+        # skip the doc because of its modified date.
 
         # We create a new HarvestObject for each inv:Dataset within the
         # Inventory document
         ids = []
+        harvested_identifiers = set()
         for dataset_node in doc.dataset_nodes():
             dataset = doc.dataset_to_dict(dataset_node)
+
+            if dataset['identifier'] in harvested_identifiers:
+                HarvestGatherError.create(
+                    'Dataset with duplicate identifier "%s" - discarding'
+                    % dataset['identifier'], harvest_job)
+                continue
+            harvested_identifiers.add(dataset['identifier'])
+
             guid = self.build_guid(doc_metadata['identifier'], dataset['identifier'])
             # Use the most recent modification date out of the doc and dataset,
             # since they might have forgotten to enter or update the dataset
@@ -167,7 +167,7 @@ class InventoryHarvester(HarvesterBase):
     @classmethod
     def build_guid(cls, doc_identifier, dataset_identifier):
         assert doc_identifier  # e.g. http://redbridge.gov.uk/
-        assert dataset_identifier  # e.g. river-levels
+        assert dataset_identifier  # e.g. payments/payments-over-500
         return '%s/%s' % (doc_identifier, dataset_identifier)
 
     def get_package_dict(self, harvest_object, package_dict_defaults,
@@ -252,18 +252,18 @@ class InventoryHarvester(HarvesterBase):
                 res['id'] = existing_resource_urls[res['url']]
             pkg['resources'].append(res)
 
-        # LGA Services and Functions
+        # Local Authority Services and Functions
         if inv_dataset['services']:
-            log.info('LGA Services: %r', inv_dataset['services'])
+            log.info('Local Authority Services: %r', inv_dataset['services'])
             # e.g. {http://id.esd.org.uk/service/190}
-            pkg['extras']['lga_services'] = ' '.join(inv_dataset['services'])
+            pkg['extras']['la_service'] = ' '.join(inv_dataset['services'])
         else:
-            pkg['extras']['lga_services'] = ''
+            pkg['extras']['la_service'] = ''
         if inv_dataset['functions']:
-            log.info('LGA Functions %r', inv_dataset['functions'])
-            pkg['extras']['lga_functions'] = ' '.join(inv_dataset['functions'])
+            log.info('Local Authority Functions %r', inv_dataset['functions'])
+            pkg['extras']['la_function'] = ' '.join(inv_dataset['functions'])
         else:
-            pkg['extras']['lga_functions'] = ''
+            pkg['extras']['la_function'] = ''
 
         pkg = package_dict_defaults.merge(pkg)
         if not pkg.get('name'):
