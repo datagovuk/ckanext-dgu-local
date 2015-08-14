@@ -132,9 +132,11 @@ class InventoryHarvester(HarvesterBase):
                                        .first()
                 if not existing_object:
                     status = 'new'
+                    package_id = None
                 elif (not existing_object.metadata_modified_date) or \
                         existing_object.metadata_modified_date.date() < dataset_last_modified:
                     status = 'changed'
+                    package_id = existing_object.package_id
                 else:
                     log.debug('Dataset unchanged: %s this="%s" previous="%s"',
                               dataset['title'], dataset_last_modified,
@@ -143,6 +145,7 @@ class InventoryHarvester(HarvesterBase):
             else:
                 status = 'new'
             obj = HarvestObject(guid=guid,
+                                package_id=package_id,
                                 job=harvest_job,
                                 content=doc.serialize_node(dataset_node),
                                 harvest_source_reference=guid,
