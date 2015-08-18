@@ -56,8 +56,6 @@ class InventoryHarvester(HarvesterBase):
         try:
             req = requests.get(harvest_job.source.url)
             e = req.raise_for_status()
-            if e:
-                raise e
         except requests.exceptions.RequestException, e:
             # e.g. requests.exceptions.ConnectionError
             self.save_gather_error('Failed to get content from URL: %s Error:%s %s' %
@@ -144,6 +142,7 @@ class InventoryHarvester(HarvesterBase):
                     continue
             else:
                 status = 'new'
+                package_id = None
             obj = HarvestObject(guid=guid,
                                 package_id=package_id,
                                 job=harvest_job,
@@ -280,8 +279,12 @@ class InventoryHarvester(HarvesterBase):
         # Themes based on services/functions
         if 'tags' not in pkg:
             pkg['tags'] = []
-        themes = dgutheme.categorize_package(pkg)
-        log.debug('%s given themes: %r', pkg['name'], themes)
+        try:
+            themes = dgutheme.categorize_package(pkg)
+            log.debug('%s given themes: %r', pkg['name'], themes)
+        except ImportError, e:
+            log.debug('Theme cannot be given: %s', e)
+            themes = []
         if themes:
             pkg['extras'][dgutheme.PRIMARY_THEME] = themes[0]
             if len(themes) == 2:
