@@ -11,7 +11,7 @@ from ckanext.harvest.model import (HarvestJob, HarvestObject,
                                    HarvestObjectExtra as HOExtra,
                                    HarvestGatherError)
 from ckanext.harvest.interfaces import IHarvester
-from ckanext.harvest.harvesters.base import HarvesterBase
+from ckanext.harvest.harvesters.dgu_base import DguHarvesterBase
 from ckanext.dgulocal.lib.geo import get_boundary
 from ckanext.dgu.lib.formats import Formats
 
@@ -23,7 +23,7 @@ SCHEMA_TYPE_MAP = {
     }
 
 
-class InventoryHarvester(HarvesterBase):
+class InventoryHarvester(DguHarvesterBase):
     '''
     Harvesting of LGA Inventories from a single XML document provided at a
     URL.
@@ -58,23 +58,25 @@ class InventoryHarvester(HarvesterBase):
             e = req.raise_for_status()
         except requests.exceptions.RequestException, e:
             # e.g. requests.exceptions.ConnectionError
-            self.save_gather_error('Failed to get content from URL: %s Error:%s %s' %
-                             (harvest_job.source.url, e.__class__.__name__, e),
-                             harvest_job)
+            self._save_gather_error(
+                'Failed to get content from URL: %s Error:%s %s' %
+                (harvest_job.source.url, e.__class__.__name__, e),
+                harvest_job)
             return None
 
         try:
             doc = InventoryDocument(req.content)
         except InventoryXmlError, e:
-            self.save_gather_error('Failed to parse or validate the XML document: %s %s' %
-                             (e.__class__.__name__, e), harvest_job)
+            self._save_gather_error(
+                'Failed to parse or validate the XML document: %s %s' %
+                (e.__class__.__name__, e), harvest_job)
             return None
 
         doc_metadata = doc.top_level_metadata()
 
         # TODO: Somehow update the publisher details with the geo boundary
         spatial_coverage_url = doc_metadata.get('spatial-coverage-url')
-        if spatial_coverage_url:
+        if False:  # DISABLED for time being, as broken  #spatial_coverage_url:
             boundary = get_boundary(spatial_coverage_url)
             if boundary:
                 # don't import dgulocal_model until here, to allow tests that
@@ -273,8 +275,8 @@ class InventoryHarvester(HarvesterBase):
             # than just a numbers suffix
             publisher = model.Group.get(harvest_object.job.source.publisher_id)
             publisher_abbrev = self._get_publisher_abbreviation(publisher)
-            pkg['name'] = self.check_name(self.munge_title_to_name(
-                '%s %s' % (pkg['title'], publisher_abbrev)))
+            pkg['name'] = self._gen_new_name(
+                '%s %s' % (pkg['title'], publisher_abbrev))
 
         # Themes based on services/functions
         if 'tags' not in pkg:
