@@ -5,7 +5,6 @@ import requests
 
 from ckan.plugins.core import implements
 from ckan import model
-import ckanext.dgu.lib.theme as dgutheme
 from ckanext.dgulocal.lib.inventory import InventoryDocument, InventoryXmlError
 from ckanext.harvest.model import (HarvestJob, HarvestObject,
                                    HarvestObjectExtra as HOExtra,
@@ -185,6 +184,7 @@ class InventoryHarvester(HarvesterBase):
         * default values for name, owner_org, tags etc can be merged in using:
             package_dict = package_dict_defaults.merge(package_dict_harvested)
         '''
+        import ckanext.dgu.lib.theme as dgutheme
         inv_dataset = InventoryDocument.dataset_to_dict(
                        InventoryDocument.parse_xml_string(harvest_object.content)
                        )
