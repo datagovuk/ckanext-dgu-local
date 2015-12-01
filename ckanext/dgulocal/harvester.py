@@ -6,7 +6,7 @@ import requests
 from ckan.plugins.core import implements
 from ckanext.dgulocal.lib.inventory import InventoryDocument, InventoryXmlError
 from ckanext.harvest.interfaces import IHarvester
-from ckanext.harvest.harvesters.base import HarvesterBase
+from ckanext.harvest.harvesters.dgu_base import DguHarvesterBase
 
 log = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ SCHEMA_TYPE_MAP = {
     }
 
 
-class InventoryHarvester(HarvesterBase):
+class InventoryHarvester(DguHarvesterBase):
     '''
     Harvesting of LGA Inventories from a single XML document provided at a
     URL.
@@ -56,27 +56,27 @@ class InventoryHarvester(HarvesterBase):
         try:
             req = requests.get(harvest_job.source.url)
             e = req.raise_for_status()
-            if e:
-                raise e
         except requests.exceptions.RequestException, e:
             # e.g. requests.exceptions.ConnectionError
-            self.save_gather_error('Failed to get content from URL: %s Error:%s %s' %
-                             (harvest_job.source.url, e.__class__.__name__, e),
-                             harvest_job)
+            self._save_gather_error(
+                'Failed to get content from URL: %s Error:%s %s' %
+                (harvest_job.source.url, e.__class__.__name__, e),
+                harvest_job)
             return None
 
         try:
             doc = InventoryDocument(req.content)
         except InventoryXmlError, e:
-            self.save_gather_error('Failed to parse or validate the XML document: %s %s' %
-                             (e.__class__.__name__, e), harvest_job)
+            self._save_gather_error(
+                'Failed to parse or validate the XML document: %s %s' %
+                (e.__class__.__name__, e), harvest_job)
             return None
 
         doc_metadata = doc.top_level_metadata()
 
         # TODO: Somehow update the publisher details with the geo boundary
         spatial_coverage_url = doc_metadata.get('spatial-coverage-url')
-        if spatial_coverage_url:
+        if False:  # DISABLED for time being, as broken  #spatial_coverage_url:
             boundary = get_boundary(spatial_coverage_url)
             if boundary:
                 # don't import dgulocal_model until here, to allow tests that
@@ -132,9 +132,11 @@ class InventoryHarvester(HarvesterBase):
                                        .first()
                 if not existing_object:
                     status = 'new'
+                    package_id = None
                 elif (not existing_object.metadata_modified_date) or \
                         existing_object.metadata_modified_date.date() < dataset_last_modified:
                     status = 'changed'
+                    package_id = existing_object.package_id
                 else:
                     log.debug('Dataset unchanged: %s this="%s" previous="%s"',
                               dataset['title'], dataset_last_modified,
@@ -142,7 +144,9 @@ class InventoryHarvester(HarvesterBase):
                     continue
             else:
                 status = 'new'
+                package_id = None
             obj = HarvestObject(guid=guid,
+                                package_id=package_id,
                                 job=harvest_job,
                                 content=doc.serialize_node(dataset_node),
                                 harvest_source_reference=guid,
@@ -278,14 +282,18 @@ class InventoryHarvester(HarvesterBase):
             # than just a numbers suffix
             publisher = model.Group.get(harvest_object.job.source.publisher_id)
             publisher_abbrev = self._get_publisher_abbreviation(publisher)
-            pkg['name'] = self.check_name(self.munge_title_to_name(
-                '%s %s' % (pkg['title'], publisher_abbrev)))
+            pkg['name'] = self._gen_new_name(
+                '%s %s' % (pkg['title'], publisher_abbrev))
 
         # Themes based on services/functions
         if 'tags' not in pkg:
             pkg['tags'] = []
-        themes = dgutheme.categorize_package(pkg)
-        log.debug('%s given themes: %r', pkg['name'], themes)
+        try:
+            themes = dgutheme.categorize_package(pkg)
+            log.debug('%s given themes: %r', pkg['name'], themes)
+        except ImportError, e:
+            log.debug('Theme cannot be given: %s', e)
+            themes = []
         if themes:
             pkg['extras'][dgutheme.PRIMARY_THEME] = themes[0]
             if len(themes) == 2:

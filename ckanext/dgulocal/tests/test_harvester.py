@@ -78,6 +78,6 @@ class TestGetPackageDict:
                            }],
             'extras': [{'key': 'harvest_source_reference', 'value': 'testguid'},
                        {'key': 'inventory_identifier', 'value': 'payments_over_500'},
-                       {'key': 'lga_functions', 'value': ''},
-                       {'key': 'lga_services', 'value': ''}],
+                       {'key': 'la_function', 'value': ''},
+                       {'key': 'la_service', 'value': ''}],
             })
