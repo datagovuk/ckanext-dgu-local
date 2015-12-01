@@ -4,16 +4,9 @@ import re
 import requests
 
 from ckan.plugins.core import implements
-from ckan import model
-import ckanext.dgu.lib.theme as dgutheme
 from ckanext.dgulocal.lib.inventory import InventoryDocument, InventoryXmlError
-from ckanext.harvest.model import (HarvestJob, HarvestObject,
-                                   HarvestObjectExtra as HOExtra,
-                                   HarvestGatherError)
 from ckanext.harvest.interfaces import IHarvester
 from ckanext.harvest.harvesters.dgu_base import DguHarvesterBase
-from ckanext.dgulocal.lib.geo import get_boundary
-from ckanext.dgu.lib.formats import Formats
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +43,13 @@ class InventoryHarvester(DguHarvesterBase):
         :param harvest_job: HarvestJob object
         :returns: A list of HarvestObject ids
         '''
+        from ckanext.harvest.model import (HarvestJob, HarvestObject,
+                                   HarvestObjectExtra as HOExtra,
+                                   HarvestGatherError)
+
+        from ckanext.dgulocal.lib.geo import get_boundary
+        from ckan import model
+
         self.last_run = None
 
         log.debug('Resolving source: %s', harvest_job.source.url)
@@ -189,6 +189,13 @@ class InventoryHarvester(DguHarvesterBase):
         * default values for name, owner_org, tags etc can be merged in using:
             package_dict = package_dict_defaults.merge(package_dict_harvested)
         '''
+        import ckanext.dgu.lib.theme as dgutheme
+        from ckanext.dgu.lib.formats import Formats
+        from ckan import model
+        from ckanext.harvest.model import (HarvestJob, HarvestObject,
+                                           HarvestObjectExtra as HOExtra,
+                                           HarvestGatherError)
+
         inv_dataset = InventoryDocument.dataset_to_dict(
                        InventoryDocument.parse_xml_string(harvest_object.content)
                        )
