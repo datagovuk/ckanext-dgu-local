@@ -1,11 +1,8 @@
-<html
-  xmlns="http://www.w3.org/1999/xhtml"
-  xmlns:py="http://genshi.edgewall.org/"
-  xmlns:xi="http://www.w3.org/2001/XInclude"
-  py:strip=""
-  >
 
-  <div py:def="local_facet_filters()" class="datasets">
+{% import "_dgu_jinja_util.html" as m with context %}
+
+{% macro local_facet_filters() %}
+  <div class="datasets">
     <div class="facet-filters">
       <div class="visible-xs visible-sm">
         <a href="#" class="hide-facets">
@@ -13,38 +10,37 @@
         </a>
       </div>
       <div class="facet-divider"></div>
-      ${facet_box(
-          'Services',
-          h.search_facets_unselected(['service']),
-          h.search_facets_selected(['service']),
-          'No service filters to apply.'
-          )}
+        {{m.facet_box(
+            'Services',
+            h.search_facets_unselected(['service']),
+            h.search_facets_selected(['service']),
+            'No service filters to apply.'
+            )}}
       <div class="facet-divider"></div>
-      ${facet_box(
-          'Functions',
-          h.search_facets_unselected(['function']),
-          h.search_facets_selected(['function']),
-          'No function filters to apply.'
-      )}
+        {{m.facet_box(
+            'Functions',
+            h.search_facets_unselected(['function']),
+            h.search_facets_selected(['function']),
+            'No function filters to apply.'
+        )}}
       <div class="facet-divider"></div>
-      <py:if test="request.params.get('parent_publishers','')">
-        ${facet_box(
+      {% if request.params.get('parent_publishers','') %}
+        {{m.facet_box(
             'Publisher',
             h.search_facets_unselected(['parent_publishers']),
             h.search_facets_selected(['parent_publishers']),
             'No publisher filters to apply.',
             more_button='more-publishers-button'
-        )}
-      </py:if>
-      <py:if test="not request.params.get('parent_publishers','')">
-        ${facet_box(
+        )}}
+        {% else %}
+        {{m.facet_box(
             'Publisher',
             h.search_facets_unselected(['publisher']),
             h.search_facets_selected(['publisher']),
             'No further publisher filters to apply.',
             more_button='more-publishers-button'
-        )}
-      </py:if>
+        )}}
+      {% endif %}
     </div><!-- /facet-filters -->
   </div>
-</html>
+{% endmacro %}
