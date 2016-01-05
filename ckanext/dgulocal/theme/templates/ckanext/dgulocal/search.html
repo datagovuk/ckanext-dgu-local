@@ -1,22 +1,18 @@
-<html
-  xmlns="http://www.w3.org/1999/xhtml"
-  xmlns:i18n="http://genshi.edgewall.org/i18n"
-  xmlns:py="http://genshi.edgewall.org/"
-  xmlns:xi="http://www.w3.org/2001/XInclude"
-  py:strip="">
+{% extends "page.html" %}
 
-<xi:include href="localfacets.html" />
-  <xi:include href="../../facets.html" />
+{% import "/ckanext/dgulocal/localfacets.html" as l with context %}
+{% import "_dgu_jinja_util.html" as m with context %}
 
-  <py:def function="page_title">Data Search</py:def>
+{% block title %}Data Search - {{ super() }}{% endblock %}
 
-  <py:match path="breadcrumbs">
+
+{% block breadcrumb_content %}
     <li><a href="/local">Local Authority data</a></li>
-  </py:match>
+{% endblock %}
 
-  <py:def function="sidebar">
+{% block secondary_content %}
     <div class="sidebar-search">
-      ${search_form(mini=True)}
+      {{m.search_form(mini=True)}}
       <div class="map-search-link">
         <i class="icon-map-marker icon-large"></i> or <a href="/local/location">conduct a map based search</a>
       </div>
@@ -30,12 +26,17 @@
     </div>
 
     <div py:if="c.page.item_count" style="margin-top:20px;">
-      ${local_facet_filters()}
+      {{l.local_facet_filters()}}
     </div>
 
-  </py:def>
+{% endblock %}
 
-  <div py:match="content">
+{% macro sort_option(text, value, selected, disabled=False) %}
+        <option value="{{value}}" {% if selected %}selected='selected'{% endif%}  {% if disabled %}disabled='disabled'{% endif%} >{{text}}</option>
+{% endmacro %}
+
+{% block primary_content_inner %}
+  <div>
     <a href="#" class="visible-sm visible-xs btn btn-primary btn-sm show-facets">Show Search Facets &raquo;</a>
 
     <py:if test="c.query_error">
@@ -46,44 +47,42 @@
     </py:if>
 
     <form class="form-inline pull-right" id="search-sort-by">
-      <py:def function="sort_option(text, value, selected, disabled=False)">
-        <option value="${value}" py:attrs="{'selected':'selected' if selected else None, 'disabled': 'disabled' if disabled else None}">${text}</option>
-      </py:def>
+
       <label>Sort by:</label>
       <select name="dataset-results-sort" class="form-control" style="display:inline-block;">
         <!--! Can optimise this bit of the template, particularly results_sort_by
-        ${sort_option('Relevance', c.sort_by([('rank','desc')]), 'rank' in h.results_sort_by(), h.relevancy_disabled())}
-        ${sort_option('Popularity', c.sort_by([('popularity','desc')]), 'popularity' in h.results_sort_by())}
-        ${sort_option('Title', c.sort_by([('title_string','asc')]), 'title_string' in h.results_sort_by())}
-        ${sort_option('Last Updated', c.sort_by([('last_major_modification','desc')]), 'last_major_modification' in h.results_sort_by())}
-        ${sort_option('Location', c.sort_by([('spatial','desc')]), 'spatial' in h.results_sort_by(), h.sort_by_location_disabled())}
+        {{sort_option('Relevance', c.sort_by([('rank','desc')]), 'rank' in h.results_sort_by(), h.relevancy_disabled())}}
+        {{sort_option('Popularity', c.sort_by([('popularity','desc')]), 'popularity' in h.results_sort_by())}}
+        {{sort_option('Title', c.sort_by([('title_string','asc')]), 'title_string' in h.results_sort_by())}}
+        {{sort_option('Last Updated', c.sort_by([('last_major_modification','desc')]), 'last_major_modification' in h.results_sort_by())}}
+        {{sort_option('Location', c.sort_by([('spatial','desc')]), 'spatial' in h.results_sort_by(), h.sort_by_location_disabled())}}
         -->
       </select>
-      <a class="feed-icon" href="${h.url(controller='feed', action='custom')}?${c.search_url_params}">
+      <a class="feed-icon" href="{{h.url(controller='feed', action='custom')}}?{{c.search_url_params}}">
         <i class="icon-rss-sign"></i>
       </a>
     </form>
 
-    <py:if test="not c.query_error">
-      <h1>${c.page.item_count if c.page not in (None, '') else c.package_count or 0} Results</h1>
-    </py:if>
-    <py:if test="c.query_error">
+    {% if not c.query_error %}
+      <h1>{{c.page.item_count if c.page not in (None, '') else c.package_count or 0}} Results</h1>
+    {% else %}
       <h1>Search Error</h1>
-    </py:if>
+    {% endif %}
 
-    ${package_list_from_dict(c.page.items if c.page else [])}
+    {{m.package_list_from_dict(c.page.items if c.page else [])}}
 
-    <div py:if="c.page and c.page.items">
-      ${paginator(c.page)}
+    {% if c.page and c.page.items %}
+    <div>
+      {{m.paginator(c.page)}}
     </div>
+    {% endif  %}
   </div>
+{% endblock %}
 
-  <py:def function="optional_feed">
-  <link rel="alternate" type="application/atom+xml" title="${g.site_title} - Datasets found with custom search: '${c.search_url_params}'"
-    href="${h.url(controller='feed', action='custom')}?${c.search_url_params}" />
-  </py:def>
+{% block optional_footer %}
+  <link rel="alternate" type="application/atom+xml" title="{{g.site_title}} - Datasets found with custom search: '{{c.search_url_params}}'"
+    href="{{h.url(controller='feed', action='custom')}}?{{c.search_url_params}}" />
+{% endblock %}
 
-  <xi:include href="../../layout.html" />
-</html>
 
 
