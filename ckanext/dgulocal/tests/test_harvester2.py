@@ -21,9 +21,9 @@ class HarvestFixtureBase:
 
     def setup(self):
         # Add sysadmin user
-        harvest_user = model.User(name=u'harvest', password=u'test', sysadmin=True)
-        Session.add(harvest_user)
-        Session.commit()
+        #harvest_user = model.User(name=u'harvest', password=u'test', sysadmin=True)
+        #Session.add(harvest_user)
+        #Session.commit()
 
         package_schema = default_update_package_schema()
         self.context ={'model':model,

@@ -3,7 +3,7 @@ from pprint import pprint
 
 from nose.tools import assert_equal
 
-from ckanext.harvest.harvesters.base import PackageDictDefaults
+from ckanext.harvest.harvesters.dgu_base import PackageDictDefaults
 from ckanext.dgulocal.harvester import InventoryHarvester
 from ckan.new_tests import factories
 

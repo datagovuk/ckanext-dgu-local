@@ -190,15 +190,16 @@ class InventoryHarvester(DguHarvesterBase):
             package_dict = package_dict_defaults.merge(package_dict_harvested)
         '''
         import ckanext.dgu.lib.theme as dgutheme
-        from ckanext.dgu.lib.formats import Formats
+        from ckan.lib.helpers import resource_formats
         from ckan import model
-        from ckanext.harvest.model import (HarvestJob, HarvestObject,
-                                           HarvestObjectExtra as HOExtra,
+        from ckanext.harvest.model import (HarvestObjectExtra as HOExtra,
                                            HarvestGatherError)
 
+        res_formats = resource_formats()
+
         inv_dataset = InventoryDocument.dataset_to_dict(
-                       InventoryDocument.parse_xml_string(harvest_object.content)
-                       )
+            InventoryDocument.parse_xml_string(harvest_object.content)
+            )
 
         pkg = dict(
             title=inv_dataset['title'],
@@ -234,9 +235,9 @@ class InventoryHarvester(DguHarvesterBase):
                                  if existing_dataset else {}
         pkg['resources'] = []
         for inv_resource in inv_resources:
-            format_ = Formats.by_mime_type().get(inv_resource['mimetype'])
+            format_ = res_formats.get(inv_resource['mimetype'].lower().strip())
             if format_:
-                format_ = format_['display_name']
+                format_ = format_[1]
             else:
                 format_ = inv_resource['mimetype']
             description = inv_resource['title']
