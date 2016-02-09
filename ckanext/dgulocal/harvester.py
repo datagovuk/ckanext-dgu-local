@@ -4,9 +4,11 @@ import re
 import requests
 
 from ckan.plugins.core import implements
-from ckanext.dgulocal.lib.inventory import InventoryDocument, InventoryXmlError
 from ckanext.harvest.interfaces import IHarvester
 from ckanext.harvest.harvesters.dgu_base import DguHarvesterBase
+from ckanext.dgu.lib import helpers as dgu_helpers
+
+from ckanext.dgulocal.lib.inventory import InventoryDocument, InventoryXmlError
 
 log = logging.getLogger(__name__)
 
@@ -213,20 +215,14 @@ class InventoryHarvester(DguHarvesterBase):
         # License
         rights = inv_dataset.get('rights')
         if rights:
-            register = model.Package.get_license_register()
-            if rights == 'http://www.nationalarchives.gov.uk/doc/open-government-licence/':
-                pkg['license_id'] = 'uk-ogl'
-            else:
-                for l in register.values():
-                    if l.url == rights:
-                        pkg['license_id'] = l.id
-                        break
-                else:
-                    # just save it as it is
-                    pkg['license_id'] = register
-                    log.info('Did not recognize license %r', register)
+            license_id, licence = \
+                dgu_helpers.get_licence_fields_from_free_text(rights)
+            pkg['license_id'] = license_id
+            if licence:
+                pkg['extras']['licence'] = licence
+                log.info('Custom licence %r', rights)
         else:
-            pkg['license_id'] = None
+            pkg['license_id'] = ''
 
         # Resources
         inv_resources = [r for r in inv_dataset['resources'] if r['active']]
