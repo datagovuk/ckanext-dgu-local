@@ -17,15 +17,15 @@ For development you should install ckanext-dgu-local as follows.
 
 1. Install this extension as normal using pip in your activated environment:
 
-    (pyenv) $ pip install -e "git+https://github.com/datagovuk/ckanext-dgu-local.git#egg=ckanext-dgu-local"
+    ```(pyenv) $ pip install -e "git+https://github.com/datagovuk/ckanext-dgu-local.git#egg=ckanext-dgu-local"```
 
 2. Activate the plugins by adding them to the CKAN config and then restarting CKAN:
 
-    ckan.plugins = ...other_plugins... dgu_local inventory_harvester
+    ```ckan.plugins = ...other_plugins... dgu_local inventory_harvester```
 
 3. Setup the database tables:
 
-    paster --plugin=ckanext-dgu-local dgulocal init --config=ckan_default.ini
+    ```paster --plugin=ckanext-dgu-local dgulocal init --config=ckan_default.ini```
 
 
 ## Plugins
@@ -52,8 +52,10 @@ This extension relies on PackageExtras being added to packages that are created,
 
 ### Package Extras
 
+
+
 |Key|Value|
-|--|--|
+|---|---|
 |lga_identifier|The publisher-wide unique identifier for this dataset|
 |lga_services|A JSON list of service URL/Label pairs|
 |lga_functions|A JSON list of function URL/Label pairs|
@@ -61,7 +63,7 @@ This extension relies on PackageExtras being added to packages that are created,
 ### Group (publisher) Extras
 
 |Key|Value|
-|--|--|
+|---|---|
 |geo_boundary|The GEOJson describing the polygon within which this authority lives - not used in this release|
 
 
